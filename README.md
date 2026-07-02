@@ -17,22 +17,35 @@ AgentFlow-AI 不是简单的 AI 聊天 Demo，而是围绕企业 AI 落地的完
 - AI：OpenAI-Compatible API、Embedding、RAG、Agent Tools、SSE Streaming
 - 工程：pnpm workspace、Docker Compose、GitHub Actions
 
-## 当前已完成
+## 当前版本
+
+当前版本按 6 周开发计划一次性推进到 **V1.5 可演示作品包**：
+
+- Week 1：工程骨架、项目包装、演示脚本、验收清单
+- Week 2：知识库 RAG 闭环
+- Week 3：Agent 工具调用机制
+- Week 4：Prompt、日志、成本与可观测性
+- Week 5：Workflow 执行器与节点协议
+- Week 6：Eval 评测、部署完善、简历与面试材料
+
+## 已完成功能
 
 - [x] Monorepo 工程结构
-- [x] Next.js 管理台骨架
-- [x] Dashboard / Chat / Knowledge / Agent / Workflow / Prompt / Eval / Settings 页面
+- [x] Next.js 管理台
 - [x] FastAPI 后端入口与路由分层
-- [x] 多模型配置接口骨架
-- [x] Chat 普通接口与 SSE 流式接口骨架
-- [x] 知识库 RAG 查询接口骨架
-- [x] Agent 工具调用链路骨架
+- [x] 模型供应商 CRUD
+- [x] 密钥加密保存与脱敏回显
+- [x] Chat 普通接口与流式接口骨架
+- [x] 知识库创建、文档上传、文本切片、RAG 问答、引用来源展示
+- [x] Agent 工具调用链路演示
+- [x] Prompt 模板测试演示
+- [x] Workflow 执行器演示
+- [x] Eval 评测运行演示
 - [x] Docker Compose：web / api / postgres / redis / minio / nginx
 - [x] GitHub Actions：web build / api compile
+- [x] 架构、数据库、RAG、Agent、Workflow、面试讲解文档
 
 ## 快速开始
-
-### 1. 克隆仓库
 
 ```bash
 git clone git@github.com:HtLimite/AgentFlow-AI.git
@@ -40,95 +53,58 @@ cd AgentFlow-AI
 cp .env.example .env
 ```
 
-### 2. 本地启动前端
+前端：
 
 ```bash
 pnpm install
 pnpm dev:web
 ```
 
-访问：`http://localhost:3000`
-
-### 3. 本地启动后端
+后端：
 
 ```bash
 cd apps/api
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+.venv\Scripts\activate
 pip install -e .
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-访问：`http://localhost:8000/docs`
-
-### 4. Docker Compose 一键启动
+Docker：
 
 ```bash
 docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
 ```
 
-服务端口：
+## 演示路径
 
-| 服务 | 地址 |
-|---|---|
-| Web | http://localhost:3000 |
-| API | http://localhost:8000 |
-| API Docs | http://localhost:8000/docs |
-| MinIO Console | http://localhost:9001 |
-| Nginx Gateway | http://localhost:8080 |
+| 模块 | 路径 | 演示点 |
+|---|---|---|
+| Dashboard | `/dashboard` | 调用量、Token、耗时、失败率看板 |
+| Settings | `/settings` | 模型供应商、连接测试、密钥脱敏 |
+| Chat | `/chat` | 调用后端 Chat Completion 接口 |
+| Knowledge | `/knowledge` | 文档上传、切片、RAG 问答、引用来源 |
+| Agents | `/agents` | Agent 调用知识库工具并展示 tool_calls |
+| Workflows | `/workflows` | 工作流节点运行链路 |
+| Prompts | `/prompts` | Prompt 变量渲染与测试 |
+| Evals | `/evals` | 评测运行与逐题评分 |
 
-## 仓库结构
+## 当前边界
 
-```txt
-agentflow-ai/
-├─ apps/
-│  ├─ web/                 # Next.js 前端管理台
-│  └─ api/                 # FastAPI 后端服务
-├─ packages/
-│  ├─ shared/              # 共享说明/类型预留
-│  └─ prompts/             # 默认 Prompt 模板
-├─ deploy/                 # Docker Compose / Nginx / Postgres 初始化
-├─ docs/                   # 架构、数据库、RAG、Agent、Workflow、面试文档
-├─ .github/workflows/      # CI
-├─ README.md
-└─ .env.example
-```
+为了让项目快速达到“可启动、可演示、可讲解”的求职作品状态，当前版本部分模块采用轻量实现：
 
-## 核心演示场景
-
-1. 配置 DeepSeek / Qwen / OpenAI-Compatible 模型供应商。
-2. 在 Chat Playground 测试普通对话与流式输出。
-3. 创建知识库，上传文档，解析切片并向量化。
-4. 发起 RAG 问答，展示答案、引用文档、引用片段和相似度。
-5. 创建 Agent，绑定知识库检索、SQL 查询、HTTP 请求等工具。
-6. 使用工作流画布组合 Start、Knowledge、LLM、Condition、HTTP、End 节点。
-7. 查看调用日志、Token 消耗、成本趋势和失败率。
-8. 使用评测集比较不同模型和 Prompt 版本。
-
-## Git 提交规范
-
-使用 Conventional Commits：
-
-```txt
-<type>(<scope>): <subject>
-```
-
-示例：
-
-```txt
-feat(api): 新增知识库查询接口
-feat(web): 实现 RAG 引用来源面板
-fix(agent): 修复工具调用状态未记录问题
-chore(repo): 调整 monorepo 工程配置
-```
+- 知识库演示数据重启后恢复默认值
+- Prompt / Eval 演示数据暂未全部持久化
+- Workflow 先返回节点运行链路，后续接 React Flow 画布
+- 真实外部模型调用保留扩展点，建议在本地联调供应商
 
 ## Roadmap
 
-- V1：多模型聊天 + 知识库 RAG 闭环
-- V2：Agent 工具调用 + 调用日志 + 成本统计
-- V3：React Flow 工作流编排 + Prompt 版本管理 + 评测集
-- V4：多租户、权限、脱敏、在线 Demo、项目官网
+- V2：Alembic 迁移、知识库持久化、MinIO 文件存储、真实 Embedding、pgvector 检索
+- V2：模型调用日志、Token 成本统计、Agent Tool Registry 标准协议
+- V3：React Flow 工作流画布、Prompt 版本管理、LLM-as-Judge 自动评测
+- V4：多租户、RBAC 权限、审计日志、数据脱敏、在线 Demo、项目官网
 
-## 面试关键词
+## 简历关键词
 
 RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Prompt Versioning、Workflow Engine、LLM Observability、Cost Dashboard、Docker Compose。
