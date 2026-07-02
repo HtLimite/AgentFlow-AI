@@ -3,6 +3,7 @@ from itertools import count
 
 from app.services.chunk_service import chunk_service
 from app.services.document_parser import document_parser
+from app.services.text_cleaner import clean_extracted_text, make_snippet
 from app.services.vector_service import vector_service
 
 
@@ -60,7 +61,8 @@ class KnowledgeService:
         if item is None:
             return None
         parsed = document_parser.parse_upload(filename, raw_content)
-        chunks = chunk_service.split_text(str(parsed["content"]), chunk_size=800, overlap=150)
+        parsed_content = clean_extracted_text(str(parsed["content"]))
+        chunks = chunk_service.split_text(parsed_content, chunk_size=800, overlap=150)
         enriched_chunks = [
             self._build_chunk(filename, str(chunk["content"]), int(chunk["chunk_index"]), int(chunk["token_count"]))
             for chunk in chunks
@@ -69,7 +71,7 @@ class KnowledgeService:
             id=next(self._doc_ids),
             kb_id=kb_id,
             filename=filename,
-            content=str(parsed["content"]),
+            content=parsed_content,
             chunks=enriched_chunks,
         )
         item.documents.append(doc)
@@ -80,35 +82,38 @@ class KnowledgeService:
         if item is None:
             return []
         query_vector = vector_service.embed(question)
-        keywords = [part for part in question.lower().split() if part]
+        keywords = [part for part in clean_extracted_text(question).lower().split() if part]
         results: list[dict[str, object]] = []
         for doc in item.documents:
             for chunk in doc.chunks:
-                content = str(chunk["content"])
+                content = clean_extracted_text(str(chunk["content"]))
                 keyword_score = sum(1 for keyword in keywords if keyword in content.lower()) * 0.03
                 vector_score = vector_service.cosine(query_vector, chunk.get("embedding", []))
                 score = round(max(0.0, vector_score) + keyword_score + 0.6, 4)
-                results.append({k: v for k, v in {**chunk, "document": doc.filename, "score": score}.items() if k != "embedding"})
+                result = {**chunk, "content": make_snippet(content, 500), "document": doc.filename, "score": score}
+                results.append({k: v for k, v in result.items() if k != "embedding"})
         return sorted(results, key=lambda row: float(row["score"]), reverse=True)[:top_k]
 
     def answer(self, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = self.search(kb_id, question, top_k)
         if not chunks:
             return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "local_vector"}}
-        evidence = "\n".join(f"- {chunk['content']}" for chunk in chunks)
+        evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 220)}" for chunk in chunks)
+        answer = f"根据知识库命中片段，可回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}"
         return {
-            "answer": f"根据知识库命中片段，可回答：{question}\n\n依据：\n{evidence}",
+            "answer": answer,
             "citations": chunks,
             "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "local_vector"},
         }
 
     def _build_chunk(self, filename: str, content: str, chunk_index: int, token_count: int) -> dict[str, object]:
+        cleaned_content = clean_extracted_text(content)
         return {
             "chunk_index": chunk_index,
-            "content": content,
+            "content": cleaned_content,
             "token_count": token_count,
             "document": filename,
-            "embedding": vector_service.embed(content),
+            "embedding": vector_service.embed(cleaned_content),
             "score": 0.0,
         }
 
