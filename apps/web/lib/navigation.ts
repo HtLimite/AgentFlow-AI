@@ -6,5 +6,6 @@ export const navigationItems = [
   { href: "/workflows", label: "工作流", icon: "⌁" },
   { href: "/prompts", label: "Prompt", icon: "#" },
   { href: "/evals", label: "评测集", icon: "✓" },
+  { href: "/verification", label: "验收中心", icon: "V" },
   { href: "/settings", label: "系统设置", icon: "⚙" }
 ] as const;
