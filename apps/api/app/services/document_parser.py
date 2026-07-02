@@ -3,6 +3,8 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from app.services.text_cleaner import clean_extracted_text
+
 
 class DocumentParseError(ValueError):
     pass
@@ -23,7 +25,7 @@ class DocumentParser:
 
     def parse_text(self, filename: str, content: str) -> dict[str, object]:
         suffix = Path(filename).suffix.lower().lstrip(".") or "txt"
-        clean_content = self._strip_binary_noise(content).strip()
+        clean_content = clean_extracted_text(content)
         if not clean_content:
             raise DocumentParseError("文档内容为空，无法建立知识库切片")
         return {"title": filename, "content": clean_content, "metadata": {"file_type": suffix}}
@@ -33,13 +35,13 @@ class DocumentParser:
             reader = PdfReader(BytesIO(raw_content))
             pages = []
             for index, page in enumerate(reader.pages, start=1):
-                page_text = page.extract_text() or ""
-                if page_text.strip():
-                    pages.append(f"[第 {index} 页]\n{page_text.strip()}")
+                page_text = clean_extracted_text(page.extract_text() or "")
+                if page_text:
+                    pages.append(f"[第 {index} 页]\n{page_text}")
         except Exception as exc:
             raise DocumentParseError("PDF 解析失败，请确认文件未加密且包含可提取文本") from exc
 
-        content = "\n\n".join(pages).strip()
+        content = clean_extracted_text("\n\n".join(pages))
         if not content:
             raise DocumentParseError("PDF 未提取到文本；扫描版 PDF 需要先 OCR 后再上传")
         return {"title": filename, "content": content, "metadata": {"file_type": "pdf", "pages": len(reader.pages)}}
@@ -52,8 +54,5 @@ class DocumentParser:
                 continue
         raise DocumentParseError("文档编码无法识别，请转为 UTF-8 文本后再上传")
 
-    def _strip_binary_noise(self, content: str) -> str:
-        return "".join(char for char in content if char in "\n\r\t" or ord(char) >= 32)
 
-
-document_parser = DocumentParser()
+ document_parser = DocumentParser()
