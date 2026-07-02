@@ -1,45 +1,77 @@
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import mask_secret
+from app.core.database import get_db
+from app.crud.model_provider import (
+    create_ai_model,
+    create_model_provider,
+    delete_model_provider,
+    get_model_provider,
+    list_ai_models,
+    list_model_providers,
+    update_model_provider,
+)
+from app.schemas.model_provider import AIModelCreate, AIModelRead, ModelProviderCreate, ModelProviderRead, ModelProviderUpdate
 
 router = APIRouter()
 
 
-class ModelProviderCreate(BaseModel):
-    name: str
-    provider_type: str = Field(default="openai-compatible")
-    base_url: str
-    api_key: str
-    enabled: bool = True
+@router.get("", response_model=list[ModelProviderRead])
+async def list_providers(session: AsyncSession = Depends(get_db)) -> list[ModelProviderRead]:
+    return await list_model_providers(session)
 
 
-@router.get("")
-async def list_model_providers() -> list[dict[str, object]]:
-    return [
-        {
-            "id": 1,
-            "name": "OpenAI Compatible",
-            "provider_type": "openai-compatible",
-            "base_url": "https://api.openai.com/v1",
-            "api_key_masked": "sk-****demo",
-            "enabled": True,
-        }
-    ]
+@router.post("", response_model=ModelProviderRead, status_code=status.HTTP_201_CREATED)
+async def create_provider(payload: ModelProviderCreate, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
+    return await create_model_provider(session, payload)
 
 
-@router.post("")
-async def create_model_provider(payload: ModelProviderCreate) -> dict[str, object]:
-    return {
-        "id": 1,
-        "name": payload.name,
-        "provider_type": payload.provider_type,
-        "base_url": payload.base_url,
-        "api_key_masked": mask_secret(payload.api_key),
-        "enabled": payload.enabled,
-    }
+@router.get("/{provider_id}", response_model=ModelProviderRead)
+async def read_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
+    provider = await get_model_provider(session, provider_id)
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
+    return provider
+
+
+@router.put("/{provider_id}", response_model=ModelProviderRead)
+async def update_provider(provider_id: int, payload: ModelProviderUpdate, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
+    provider = await update_model_provider(session, provider_id, payload)
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
+    return provider
+
+
+@router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> None:
+    deleted = await delete_model_provider(session, provider_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
 
 
 @router.post("/{provider_id}/test")
-async def test_model_provider(provider_id: int) -> dict[str, object]:
-    return {"provider_id": provider_id, "ok": True, "latency_ms": 320}
+async def test_model_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    provider = await get_model_provider(session, provider_id)
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
+    if not provider.enabled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model provider is disabled")
+    return {
+        "provider_id": provider_id,
+        "ok": True,
+        "message": "provider config validated",
+        "base_url": provider.base_url,
+    }
+
+
+@router.get("/models/list", response_model=list[AIModelRead])
+async def list_models(session: AsyncSession = Depends(get_db)) -> list[AIModelRead]:
+    return await list_ai_models(session)
+
+
+@router.post("/models", response_model=AIModelRead, status_code=status.HTTP_201_CREATED)
+async def create_model(payload: AIModelCreate, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+    model = await create_ai_model(session, payload)
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
+    return model
