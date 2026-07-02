@@ -26,6 +26,19 @@ async def create_provider(payload: ModelProviderCreate, session: AsyncSession = 
     return await create_model_provider(session, payload)
 
 
+@router.get("/models/list", response_model=list[AIModelRead])
+async def list_models(session: AsyncSession = Depends(get_db)) -> list[AIModelRead]:
+    return await list_ai_models(session)
+
+
+@router.post("/models", response_model=AIModelRead, status_code=status.HTTP_201_CREATED)
+async def create_model(payload: AIModelCreate, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+    model = await create_ai_model(session, payload)
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
+    return model
+
+
 @router.get("/{provider_id}", response_model=ModelProviderRead)
 async def read_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
     provider = await get_model_provider(session, provider_id)
@@ -62,16 +75,3 @@ async def test_model_provider(provider_id: int, session: AsyncSession = Depends(
         "message": "provider config validated",
         "base_url": provider.base_url,
     }
-
-
-@router.get("/models/list", response_model=list[AIModelRead])
-async def list_models(session: AsyncSession = Depends(get_db)) -> list[AIModelRead]:
-    return await list_ai_models(session)
-
-
-@router.post("/models", response_model=AIModelRead, status_code=status.HTTP_201_CREATED)
-async def create_model(payload: AIModelCreate, session: AsyncSession = Depends(get_db)) -> AIModelRead:
-    model = await create_ai_model(session, payload)
-    if model is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
-    return model
