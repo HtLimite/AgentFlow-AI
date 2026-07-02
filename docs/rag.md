@@ -1,25 +1,40 @@
 # RAG 设计
 
-## 流程
+## 当前实现
+
+当前版本实现轻量 RAG 闭环：
 
 ```txt
-上传文档 → MinIO 存储 → 文档解析 → 文本清洗 → Chunk 切分 → Embedding → pgvector 入库 → 问题向量化 → TopK 检索 → 组装上下文 → LLM 回答 → 引用来源展示
+文档上传 → 文本解析 → chunk 切分 → 本地确定性向量 → 检索排序 → RAG 回答 → 引用来源展示
 ```
 
-## 切分策略
+## 为什么先用本地向量
 
-- `chunk_size`: 800 字符
-- `chunk_overlap`: 150 字符
-- V2 增加 Markdown 标题切分与 Rerank
+求职项目第一阶段的重点是展示完整工程闭环和模块边界。本地向量服务具备确定性、无需外部依赖、便于离线演示。后续可以替换为真实 Embedding 模型和 pgvector。
 
-## 输出要求
+## 生产替换点
 
-RAG 回答必须展示：
+- `app/services/vector_service.py`：替换为真实 Embedding Provider
+- `app/services/knowledge_service.py`：将内存数据替换为 PostgreSQL + pgvector
+- `deploy/postgres/init.sql`：已经预留 `knowledge_chunk.embedding VECTOR(1536)`
 
-- 直接答案
-- 引用文档
-- 引用片段
-- 相似度分数
-- chunk index
+## 回答结构
 
-目标是降低幻觉，并让面试演示时能够说明“答案可核验”。
+RAG 接口返回：
+
+```json
+{
+  "answer": "最终回答",
+  "citations": [
+    {
+      "document": "来源文档",
+      "content": "命中片段",
+      "score": 0.91,
+      "chunk_index": 0
+    }
+  ],
+  "debug": {
+    "strategy": "local_vector"
+  }
+}
+```

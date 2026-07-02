@@ -3,6 +3,7 @@ from itertools import count
 
 from app.services.chunk_service import chunk_service
 from app.services.document_parser import document_parser
+from app.services.vector_service import vector_service
 
 
 @dataclass
@@ -28,20 +29,13 @@ class KnowledgeService:
         self._kb_ids = count(2)
         self._doc_ids = count(1)
         demo = KnowledgeBaseRecord(id=1, name="企业制度知识库", description="默认演示知识库")
+        demo_text = "报销流程：员工提交发票和报销单，直属负责人审批，财务复核后付款。"
         demo_doc = KnowledgeDocumentRecord(
             id=next(self._doc_ids),
             kb_id=1,
             filename="demo-policy.md",
-            content="报销流程：员工提交发票和报销单，直属负责人审批，财务复核后付款。",
-            chunks=[
-                {
-                    "chunk_index": 0,
-                    "content": "报销流程：员工提交发票和报销单，直属负责人审批，财务复核后付款。",
-                    "token_count": 32,
-                    "document": "demo-policy.md",
-                    "score": 0.91,
-                }
-            ],
+            content=demo_text,
+            chunks=[self._build_chunk("demo-policy.md", demo_text, 0, 32)],
         )
         demo.documents.append(demo_doc)
         self._items: dict[int, KnowledgeBaseRecord] = {1: demo}
@@ -69,8 +63,8 @@ class KnowledgeService:
         parsed = document_parser.parse_text(filename, text)
         chunks = chunk_service.split_text(str(parsed["content"]), chunk_size=800, overlap=150)
         enriched_chunks = [
-            {**chunk, "document": filename, "score": round(0.92 - index * 0.03, 4)}
-            for index, chunk in enumerate(chunks)
+            self._build_chunk(filename, str(chunk["content"]), int(chunk["chunk_index"]), int(chunk["token_count"]))
+            for chunk in chunks
         ]
         doc = KnowledgeDocumentRecord(
             id=next(self._doc_ids),
@@ -86,22 +80,38 @@ class KnowledgeService:
         item = self._items.get(kb_id)
         if item is None:
             return []
-        all_chunks: list[dict[str, object]] = []
+        query_vector = vector_service.embed(question)
         keywords = [part for part in question.lower().split() if part]
+        results: list[dict[str, object]] = []
         for doc in item.documents:
             for chunk in doc.chunks:
                 content = str(chunk["content"])
-                hit_count = sum(1 for keyword in keywords if keyword in content.lower())
-                score = float(chunk.get("score", 0.8)) + min(hit_count * 0.02, 0.1)
-                all_chunks.append({**chunk, "document": doc.filename, "score": round(score, 4)})
-        return sorted(all_chunks, key=lambda row: float(row["score"]), reverse=True)[:top_k]
+                keyword_score = sum(1 for keyword in keywords if keyword in content.lower()) * 0.03
+                vector_score = vector_service.cosine(query_vector, chunk.get("embedding", []))
+                score = round(max(0.0, vector_score) + keyword_score + 0.6, 4)
+                results.append({k: v for k, v in {**chunk, "document": doc.filename, "score": score}.items() if k != "embedding"})
+        return sorted(results, key=lambda row: float(row["score"]), reverse=True)[:top_k]
 
     def answer(self, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = self.search(kb_id, question, top_k)
         if not chunks:
-            return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k}}
+            return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "local_vector"}}
         evidence = "\n".join(f"- {chunk['content']}" for chunk in chunks)
-        return {"answer": f"根据知识库命中片段，可回答：{question}\n\n依据：\n{evidence}", "citations": chunks, "debug": {"kb_id": kb_id, "top_k": top_k}}
+        return {
+            "answer": f"根据知识库命中片段，可回答：{question}\n\n依据：\n{evidence}",
+            "citations": chunks,
+            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "local_vector"},
+        }
+
+    def _build_chunk(self, filename: str, content: str, chunk_index: int, token_count: int) -> dict[str, object]:
+        return {
+            "chunk_index": chunk_index,
+            "content": content,
+            "token_count": token_count,
+            "document": filename,
+            "embedding": vector_service.embed(content),
+            "score": 0.0,
+        }
 
     def _serialize_base(self, item: KnowledgeBaseRecord) -> dict[str, object]:
         chunk_count = sum(len(doc.chunks) for doc in item.documents)
