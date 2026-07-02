@@ -55,4 +55,4 @@ class DocumentParser:
         raise DocumentParseError("文档编码无法识别，请转为 UTF-8 文本后再上传")
 
 
- document_parser = DocumentParser()
+document_parser = DocumentParser()
