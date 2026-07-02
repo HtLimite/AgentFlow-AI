@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agentflow-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agentflow}
+      POSTGRES_USER: ${POSTGRES_USER:-agentflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - agentflow_postgres:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agentflow} -d ${POSTGRES_DB:-agentflow}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: agentflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - agentflow_redis:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: agentflow-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-agentflow}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-agentflow123}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - agentflow_minio:/data
+
+  api:
+    build:
+      context: ../apps/api
+    container_name: agentflow-api
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ../apps/web
+    container_name: agentflow-web
+    env_file:
+      - ../.env
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: agentflow-nginx
+    depends_on:
+      - web
+      - api
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  agentflow_postgres:
+  agentflow_redis:
+  agentflow_minio:
