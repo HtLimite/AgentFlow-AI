@@ -19,6 +19,7 @@ export function KnowledgeConsole() {
   const [selectedId, setSelectedId] = useState(1);
   const [question, setQuestion] = useState("报销流程是什么？");
   const [answer, setAnswer] = useState("等待查询");
+  const [uploading, setUploading] = useState(false);
 
   async function load() {
     const data = await apiGet<KnowledgeBaseItem[]>("/api/knowledge-bases");
@@ -39,11 +40,24 @@ export function KnowledgeConsole() {
   async function upload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
-    const response = await fetch(`${API_BASE_URL}/api/knowledge-bases/${selectedId}/documents`, { method: "POST", body: formData });
-    if (!response.ok) throw new Error("上传失败");
-    await load();
+    setUploading(true);
+    setAnswer(`正在解析文档：${file.name}`);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(`${API_BASE_URL}/api/knowledge-bases/${selectedId}/documents`, { method: "POST", body: formData });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.detail || "上传失败，请检查文档格式");
+      }
+      await load();
+      setAnswer(`文档已解析并切片：${file.name}`);
+    } catch (error) {
+      setAnswer(error instanceof Error ? error.message : "上传失败，请检查文档格式");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
   }
 
   return (
@@ -51,9 +65,12 @@ export function KnowledgeConsole() {
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold">知识库 RAG</h2>
-          <p className="mt-1 text-sm text-slate-400">已接入后端：创建、上传、切片、问答、引用来源。</p>
+          <p className="mt-1 text-sm text-slate-400">已接入后端：创建、上传、切片、问答、引用来源。支持 txt / md / pdf，扫描版 PDF 需先 OCR。</p>
         </div>
-        <input type="file" onChange={upload} className="text-sm text-slate-300" />
+        <label className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-200 hover:bg-white/15">
+          {uploading ? "解析中..." : "上传文档"}
+          <input type="file" accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf" onChange={upload} className="hidden" disabled={uploading} />
+        </label>
       </Card>
       <div className="grid gap-4 lg:grid-cols-3">
         {items.map((row) => (

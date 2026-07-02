@@ -59,8 +59,7 @@ class KnowledgeService:
         item = self._items.get(kb_id)
         if item is None:
             return None
-        text = raw_content.decode("utf-8", errors="ignore") or filename
-        parsed = document_parser.parse_text(filename, text)
+        parsed = document_parser.parse_upload(filename, raw_content)
         chunks = chunk_service.split_text(str(parsed["content"]), chunk_size=800, overlap=150)
         enriched_chunks = [
             self._build_chunk(filename, str(chunk["content"]), int(chunk["chunk_index"]), int(chunk["token_count"]))

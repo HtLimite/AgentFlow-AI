@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
+from app.services.document_parser import DocumentParseError
 from app.services.knowledge_service import knowledge_service
 from app.services.rag_service import rag_service
 
@@ -35,7 +36,10 @@ async def list_documents(kb_id: int) -> list[dict[str, object]]:
 @router.post("/{kb_id}/documents")
 async def upload_document(kb_id: int, file: UploadFile) -> dict[str, object]:
     content = await file.read()
-    document = knowledge_service.add_document(kb_id, file.filename or "untitled.txt", content)
+    try:
+        document = knowledge_service.add_document(kb_id, file.filename or "untitled.txt", content)
+    except DocumentParseError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
     return document
