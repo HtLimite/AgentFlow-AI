@@ -1,19 +1,23 @@
 from fastapi import APIRouter
 
+from app.services.observability_service import observability_service
+
 router = APIRouter()
 
 
 @router.get("/summary")
 async def get_dashboard_summary() -> dict[str, object]:
-    return {
-        "calls_today": 1284,
-        "tokens_today": 2_400_000,
-        "avg_latency_ms": 1800,
-        "failure_rate": 0.007,
-        "knowledge_bases": 3,
-        "agents": 3,
-        "workflow_runs": 28,
-    }
+    return observability_service.summary()
+
+
+@router.get("/token-usage")
+async def get_token_usage() -> list[dict[str, object]]:
+    return observability_service.token_usage()
+
+
+@router.get("/llm-logs")
+async def get_llm_logs() -> list[dict[str, object]]:
+    return observability_service.list_logs()
 
 
 @router.get("/recent-errors")

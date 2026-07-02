@@ -1,15 +1,9 @@
-from itertools import count
-
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
-router = APIRouter()
+from app.services.prompt_service import prompt_service
 
-_prompt_ids = count(3)
-_prompts: dict[int, dict[str, object]] = {
-    1: {"id": 1, "name": "RAG 问答模板", "scenario": "rag", "content": "请根据上下文回答：{{question}}", "current_version": 1},
-    2: {"id": 2, "name": "Agent 工具调用模板", "scenario": "agent", "content": "你可以调用工具解决用户问题：{{question}}", "current_version": 1},
-}
+router = APIRouter()
 
 
 class PromptCreateRequest(BaseModel):
@@ -18,37 +12,44 @@ class PromptCreateRequest(BaseModel):
     content: str = Field(min_length=1)
 
 
+class PromptUpdateRequest(BaseModel):
+    content: str = Field(min_length=1)
+    change_note: str = "update"
+
+
 class PromptTestRequest(BaseModel):
     variables: dict[str, str] = Field(default_factory=dict)
 
 
 @router.get("")
 async def list_prompts() -> list[dict[str, object]]:
-    return list(_prompts.values())
+    return prompt_service.list_items()
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_prompt(payload: PromptCreateRequest) -> dict[str, object]:
-    prompt_id = next(_prompt_ids)
-    item = {"id": prompt_id, "name": payload.name, "scenario": payload.scenario, "content": payload.content, "current_version": 1}
-    _prompts[prompt_id] = item
+    return prompt_service.create(payload.name, payload.scenario, payload.content)
+
+
+@router.put("/{prompt_id}")
+async def update_prompt(prompt_id: int, payload: PromptUpdateRequest) -> dict[str, object]:
+    item = prompt_service.update(prompt_id, payload.content, payload.change_note)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prompt not found")
     return item
 
 
 @router.get("/{prompt_id}/versions")
 async def list_prompt_versions(prompt_id: int) -> list[dict[str, object]]:
-    item = _prompts.get(prompt_id)
-    if item is None:
+    versions = prompt_service.versions(prompt_id)
+    if versions is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prompt not found")
-    return [{"version": item["current_version"], "content": item["content"], "change_note": "initial"}]
+    return versions
 
 
 @router.post("/{prompt_id}/test")
 async def test_prompt(prompt_id: int, payload: PromptTestRequest) -> dict[str, object]:
-    item = _prompts.get(prompt_id)
-    if item is None:
+    result = prompt_service.render(prompt_id, payload.variables)
+    if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prompt not found")
-    rendered = str(item["content"])
-    for key, value in payload.variables.items():
-        rendered = rendered.replace("{{" + key + "}}", value)
-    return {"prompt_id": prompt_id, "rendered": rendered, "variables": payload.variables}
+    return result

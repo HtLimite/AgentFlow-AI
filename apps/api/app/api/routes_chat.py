@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.services.llm_service import LLMMessage, llm_service
+from app.services.observability_service import observability_service
 
 router = APIRouter()
 
@@ -21,6 +22,13 @@ class ChatCompletionRequest(BaseModel):
 @router.post("/completions")
 async def chat_completions(payload: ChatCompletionRequest) -> dict[str, object]:
     result = await llm_service.complete(payload.messages, payload.model, payload.temperature)
+    observability_service.record(
+        scenario="chat",
+        model=payload.model or "demo-model",
+        prompt_tokens=result.usage.get("prompt_tokens", 0),
+        completion_tokens=result.usage.get("completion_tokens", 0),
+        latency_ms=result.latency_ms,
+    )
     return {"answer": result.content, "usage": result.usage, "latency_ms": result.latency_ms}
 
 
