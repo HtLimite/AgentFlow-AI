@@ -1,21 +1,37 @@
 # Agent 设计
 
-## 工具调用流程
+## 当前实现
 
-```txt
-用户问题 → 读取 Agent 配置 → 判断可用工具 → 执行工具 → 记录 tool_call_log → 汇总工具结果 → LLM 生成最终答案
-```
-
-## 第一阶段工具
+当前版本实现 Tool Registry 和 4 个内置工具：
 
 - `knowledge_search`：知识库检索
-- `sql_query`：只读 SQL 查询
-- `http_request`：HTTP API 请求
-- `calculator`：计算器
+- `calculator`：安全计算器
+- `sql_query`：只读 SQL 查询演示
+- `http_request`：HTTP 请求安全演示
 
-## 安全策略
+## 调用流程
 
-- SQL 工具仅允许 SELECT
-- HTTP 工具需要 SSRF 防护
-- 工具调用必须记录输入、输出、状态和耗时
-- API Key 不回显、不进日志
+```txt
+用户问题 → Agent 选择工具 → 构建工具参数 → Tool Registry 执行 → 返回 tool_calls → 生成最终回答
+```
+
+## 可观测性
+
+每次工具调用返回：
+
+```json
+{
+  "tool_name": "knowledge_search",
+  "input": {},
+  "output": {},
+  "status": "success",
+  "error_message": null
+}
+```
+
+## 安全边界
+
+- SQL 工具只允许 SELECT
+- HTTP 工具禁止本地地址
+- 计算器只允许基础表达式 AST
+- 未注册工具返回 failed 状态
