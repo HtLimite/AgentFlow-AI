@@ -1,12 +1,16 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
+
+ProviderType = Literal["openai-compatible", "ollama", "azure-openai"]
+ModelType = Literal["chat", "embedding", "rerank"]
 
 
 class ModelProviderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    provider_type: str = Field(default="openai-compatible", min_length=1, max_length=50)
+    provider_type: ProviderType = "openai-compatible"
     base_url: HttpUrl
     api_key: str = Field(min_length=1)
     enabled: bool = True
@@ -14,7 +18,7 @@ class ModelProviderCreate(BaseModel):
 
 class ModelProviderUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
-    provider_type: str | None = Field(default=None, min_length=1, max_length=50)
+    provider_type: ProviderType | None = None
     base_url: HttpUrl | None = None
     api_key: str | None = Field(default=None, min_length=1)
     enabled: bool | None = None
@@ -34,7 +38,7 @@ class ModelProviderRead(BaseModel):
 class AIModelCreate(BaseModel):
     provider_id: int
     model_name: str = Field(min_length=1, max_length=128)
-    model_type: str = Field(pattern="^(chat|embedding|rerank)$")
+    model_type: ModelType = "chat"
     context_window: int | None = None
     input_price: Decimal | None = None
     output_price: Decimal | None = None
