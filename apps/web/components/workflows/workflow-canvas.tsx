@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addEdge,
   Background,
@@ -30,12 +30,15 @@ interface WorkflowRunResult {
   }>;
 }
 
-type WorkflowNodeData = {
+type WorkflowNodeData = Record<string, unknown> & {
   label: string;
   nodeType: string;
   description: string;
   config?: Record<string, unknown>;
 };
+
+type WorkflowNode = Node<WorkflowNodeData>;
+type WorkflowEdge = Edge;
 
 type WorkflowItem = {
   id: number;
@@ -52,7 +55,7 @@ type KnowledgeBaseItem = {
   chunk_count: number;
 };
 
-const initialNodes: Array<Node<WorkflowNodeData>> = [
+const initialNodes: WorkflowNode[] = [
   {
     id: "start_1",
     type: "input",
@@ -82,14 +85,14 @@ const initialNodes: Array<Node<WorkflowNodeData>> = [
   },
 ];
 
-const initialEdges: Edge[] = [
+const initialEdges: WorkflowEdge[] = [
   { id: "e-start-knowledge", source: "start_1", target: "knowledge_1", animated: true },
   { id: "e-knowledge-llm", source: "knowledge_1", target: "llm_1", animated: true },
   { id: "e-llm-condition", source: "llm_1", target: "condition_1", animated: true },
   { id: "e-condition-end", source: "condition_1", target: "end_1", animated: true },
 ];
 
-function buildDefinition(nodes: Array<Node<WorkflowNodeData>>, edges: Edge[], kbId: number | null) {
+function buildDefinition(nodes: WorkflowNode[], edges: WorkflowEdge[], kbId: number | null) {
   return {
     nodes: nodes.map((node) => ({
       id: node.id,
@@ -113,8 +116,8 @@ function nodeClassName(isActive: boolean, isSelected: boolean) {
 }
 
 export function WorkflowCanvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeData>(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<WorkflowEdge>(initialEdges);
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseItem[]>([]);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
@@ -129,7 +132,7 @@ export function WorkflowCanvas() {
   const selectedNode = nodes.find((node) => node.id === selected);
   const definition = useMemo(() => buildDefinition(nodes, edges, selectedKbId), [nodes, edges, selectedKbId]);
 
-  async function loadRuntimeOptions() {
+  const loadRuntimeOptions = useCallback(async () => {
     const [workflowData, kbData] = await Promise.all([
       apiGet<WorkflowItem[]>("/api/workflows"),
       apiGet<KnowledgeBaseItem[]>("/api/knowledge-bases"),
@@ -138,11 +141,11 @@ export function WorkflowCanvas() {
     setKnowledgeBases(kbData);
     setSelectedWorkflowId((current) => (current && workflowData.some((item) => item.id === current) ? current : workflowData[0]?.id ?? null));
     setSelectedKbId((current) => (current && kbData.some((item) => item.id === current) ? current : kbData[0]?.id ?? null));
-  }
+  }, []);
 
   useEffect(() => {
     loadRuntimeOptions().catch((err) => setError(err instanceof Error ? err.message : "运行时配置加载失败"));
-  }, []);
+  }, [loadRuntimeOptions]);
 
   async function run() {
     if (!selectedWorkflowId) {
