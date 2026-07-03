@@ -2,6 +2,7 @@ export const navigationItems = [
   { href: "/demo", label: "演示动线", icon: "D" },
   { href: "/showcase", label: "作品展示", icon: "S" },
   { href: "/dashboard", label: "数据看板", icon: "O" },
+  { href: "/diagnosis", label: "项目诊断", icon: "X" },
   { href: "/chat", label: "Chat Playground", icon: "C" },
   { href: "/knowledge", label: "知识库 RAG", icon: "K" },
   { href: "/agents", label: "Agent", icon: "G" },
