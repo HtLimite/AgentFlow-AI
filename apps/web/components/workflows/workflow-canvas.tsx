@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addEdge,
   Background,
@@ -13,7 +13,7 @@ import {
   type Edge,
   type Node,
 } from "@xyflow/react";
-import { apiJson } from "@/lib/api-client";
+import { apiGet, apiJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -37,6 +37,21 @@ type WorkflowNodeData = {
   config?: Record<string, unknown>;
 };
 
+type WorkflowItem = {
+  id: number;
+  name: string;
+  enabled: boolean;
+  node_count: number;
+  edge_count: number;
+};
+
+type KnowledgeBaseItem = {
+  id: number;
+  name: string;
+  document_count: number;
+  chunk_count: number;
+};
+
 const initialNodes: Array<Node<WorkflowNodeData>> = [
   {
     id: "start_1",
@@ -47,17 +62,17 @@ const initialNodes: Array<Node<WorkflowNodeData>> = [
   {
     id: "knowledge_1",
     position: { x: 280, y: 80 },
-    data: { label: "Knowledge", nodeType: "knowledge", description: "检索知识库", config: { kb_id: 1, top_k: 3 } },
+    data: { label: "Knowledge", nodeType: "knowledge", description: "检索当前选择的知识库", config: { top_k: 3 } },
   },
   {
     id: "llm_1",
     position: { x: 560, y: 160 },
-    data: { label: "LLM", nodeType: "llm", description: "生成回答", config: { prompt: "根据知识库结果回答：{{question}}" } },
+    data: { label: "LLM", nodeType: "llm", description: "生成回答", config: { prompt: "根据上游结果回答用户问题" } },
   },
   {
     id: "condition_1",
     position: { x: 820, y: 80 },
-    data: { label: "Condition", nodeType: "condition", description: "质量判断", config: { expression: "score >= 0.7" } },
+    data: { label: "Condition", nodeType: "condition", description: "质量判断", config: {} },
   },
   {
     id: "end_1",
@@ -74,9 +89,15 @@ const initialEdges: Edge[] = [
   { id: "e-condition-end", source: "condition_1", target: "end_1", animated: true },
 ];
 
-function buildDefinition(nodes: Array<Node<WorkflowNodeData>>, edges: Edge[]) {
+function buildDefinition(nodes: Array<Node<WorkflowNodeData>>, edges: Edge[], kbId: number | null) {
   return {
-    nodes: nodes.map((node) => ({ id: node.id, type: node.data.nodeType, data: node.data.config ?? {} })),
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      type: node.data.nodeType,
+      data: node.data.nodeType === "knowledge" && kbId
+        ? { ...(node.data.config ?? {}), kb_id: kbId }
+        : node.data.config ?? {},
+    })),
     edges: edges.map((edge) => ({ source: edge.source, target: edge.target })),
   };
 }
@@ -94,6 +115,11 @@ function nodeClassName(isActive: boolean, isSelected: boolean) {
 export function WorkflowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNodeData>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseItem[]>([]);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
+  const [selectedKbId, setSelectedKbId] = useState<number | null>(null);
+  const [question, setQuestion] = useState("");
   const [result, setResult] = useState<WorkflowRunResult | null>(null);
   const [selected, setSelected] = useState<string>("start_1");
   const [error, setError] = useState("");
@@ -101,13 +127,36 @@ export function WorkflowCanvas() {
   const activeNodeIds = useMemo(() => new Set(result?.node_runs?.map((item) => item.node_id) ?? []), [result]);
   const selectedRun = result?.node_runs?.find((item) => item.node_id === selected);
   const selectedNode = nodes.find((node) => node.id === selected);
-  const definition = useMemo(() => buildDefinition(nodes, edges), [nodes, edges]);
+  const definition = useMemo(() => buildDefinition(nodes, edges, selectedKbId), [nodes, edges, selectedKbId]);
+
+  async function loadRuntimeOptions() {
+    const [workflowData, kbData] = await Promise.all([
+      apiGet<WorkflowItem[]>("/api/workflows"),
+      apiGet<KnowledgeBaseItem[]>("/api/knowledge-bases"),
+    ]);
+    setWorkflows(workflowData);
+    setKnowledgeBases(kbData);
+    setSelectedWorkflowId((current) => (current && workflowData.some((item) => item.id === current) ? current : workflowData[0]?.id ?? null));
+    setSelectedKbId((current) => (current && kbData.some((item) => item.id === current) ? current : kbData[0]?.id ?? null));
+  }
+
+  useEffect(() => {
+    loadRuntimeOptions().catch((err) => setError(err instanceof Error ? err.message : "运行时配置加载失败"));
+  }, []);
 
   async function run() {
+    if (!selectedWorkflowId) {
+      setError("请先选择工作流");
+      return;
+    }
+    if (!question.trim()) {
+      setError("请输入工作流输入问题");
+      return;
+    }
     try {
       setError("");
-      const data = await apiJson<WorkflowRunResult>("/api/workflows/1/run", {
-        input: { question: "报销流程是什么？" },
+      const data = await apiJson<WorkflowRunResult>(`/api/workflows/${selectedWorkflowId}/run`, {
+        input: { question },
         definition,
       });
       setResult(data);
@@ -117,14 +166,14 @@ export function WorkflowCanvas() {
     }
   }
 
-  function addDemoNode() {
+  function addHttpNode() {
     const id = `http_${Date.now()}`;
     setNodes((items) => [
       ...items,
       {
         id,
         position: { x: 620, y: 360 },
-        data: { label: "HTTP", nodeType: "http", description: "调用外部 API", config: { method: "GET", url: "https://example.com/api/demo" } },
+        data: { label: "HTTP", nodeType: "http", description: "调用外部 API；请在 definition 中配置真实 URL", config: { method: "GET", url: "" } },
       },
     ]);
   }
@@ -133,12 +182,37 @@ export function WorkflowCanvas() {
     <div className="space-y-4">
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">V4 React Flow 拖拽工作流画布</h2>
-          <p className="mt-1 text-sm text-slate-400">支持节点拖拽、连线、运行状态高亮、节点输出详情和 definition JSON 预览。</p>
+          <h2 className="text-xl font-semibold">React Flow 拖拽工作流画布</h2>
+          <p className="mt-1 text-sm text-slate-400">工作流、知识库和输入问题均从运行时选择，不固定 workflow_id、kb_id 或测试问题。</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={addDemoNode}>添加 HTTP 节点</Button>
-          <Button onClick={run}>运行当前画布</Button>
+          <Button onClick={addHttpNode}>添加 HTTP 节点</Button>
+          <Button onClick={run} disabled={!selectedWorkflowId || !question.trim()}>运行当前画布</Button>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">工作流</span>
+            <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={selectedWorkflowId ?? ""} onChange={(event) => setSelectedWorkflowId(Number(event.target.value))}>
+              {workflows.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">知识库</span>
+            <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={selectedKbId ?? ""} onChange={(event) => setSelectedKbId(Number(event.target.value))}>
+              {knowledgeBases.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">输入问题</span>
+            <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入本次工作流问题" />
+          </label>
         </div>
       </Card>
 
@@ -181,7 +255,7 @@ export function WorkflowCanvas() {
         <Card>
           <h3 className="font-semibold">当前 Definition</h3>
           <pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">
-            {JSON.stringify({ status: result?.status ?? "idle", run_id: result?.run_id, source: result?.source, definition }, null, 2)}
+            {JSON.stringify({ status: result?.status ?? "idle", run_id: result?.run_id, source: result?.source, workflow_id: selectedWorkflowId, kb_id: selectedKbId, definition }, null, 2)}
           </pre>
         </Card>
       </div>
