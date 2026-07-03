@@ -283,28 +283,32 @@ async def full_health_check() -> dict[str, object]:
     summary = observability_service.summary()
     tool_audit_service.seed_if_empty()
     audit_summary = tool_audit_service.summary()
+    tool_audit_ready = "total_calls" in audit_summary and "success_rate" in audit_summary
+    modules = {
+        "dashboard": True,
+        "model_provider": True,
+        "chat": True,
+        "provider_streaming": True,
+        "provider_embedding": True,
+        "rerank": True,
+        "judge": True,
+        "knowledge_base": len(knowledge_bases) > 0,
+        "agent_tools": len(tools) >= 4,
+        "tool_audit": tool_audit_ready,
+        "workflow": len(DEFAULT_WORKFLOW.nodes) >= 4,
+        "workflow_canvas": True,
+        "react_flow_canvas": True,
+        "rbac": True,
+        "prompt": True,
+        "eval": len(datasets) > 0,
+        "eval_compare": True,
+        "observability": summary["calls_today"] >= 0,
+    }
+    failed_modules = [name for name, ok in modules.items() if not ok]
     return {
-        "status": "ok",
-        "modules": {
-            "dashboard": True,
-            "model_provider": True,
-            "chat": True,
-            "provider_streaming": True,
-            "provider_embedding": True,
-            "rerank": True,
-            "judge": True,
-            "knowledge_base": len(knowledge_bases) > 0,
-            "agent_tools": len(tools) >= 4,
-            "tool_audit": audit_summary["total_calls"] >= 1,
-            "workflow": len(DEFAULT_WORKFLOW.nodes) >= 4,
-            "workflow_canvas": True,
-            "react_flow_canvas": True,
-            "rbac": True,
-            "prompt": True,
-            "eval": len(datasets) > 0,
-            "eval_compare": True,
-            "observability": summary["calls_today"] >= 0,
-        },
+        "status": "ok" if not failed_modules else "failed",
+        "modules": modules,
+        "failed_modules": failed_modules,
         "counts": {
             "knowledge_bases": len(knowledge_bases),
             "tools": len(tools),
