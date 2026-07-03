@@ -62,31 +62,10 @@ class PersistentToolAuditService:
         tool_rows = await session.execute(select(ToolAuditLogModel.tool_name, func.count(ToolAuditLogModel.id)).group_by(ToolAuditLogModel.tool_name))
         tool_counts = {tool: int(count) for tool, count in tool_rows.all()}
         avg_value = float(avg_latency) if isinstance(avg_latency, Decimal) else float(avg_latency or 0)
-        return {
-            "total_calls": total,
-            "failed_calls": failed,
-            "success_rate": round((total - failed) / total, 4) if total else 1,
-            "avg_latency_ms": round(avg_value, 2),
-            "tool_counts": tool_counts,
-            "source": "database",
-        }
+        return {"total_calls": total, "failed_calls": failed, "success_rate": round((total - failed) / total, 4) if total else 1, "avg_latency_ms": round(avg_value, 2), "tool_counts": tool_counts, "source": "database"}
 
     async def seed_if_empty(self, session: AsyncSession) -> None:
-        existing = await session.scalar(select(ToolAuditLogModel.id).limit(1))
-        if existing:
-            return
-        await self.record(
-            session,
-            {
-                "trace_id": "demo-trace-001",
-                "agent_id": 1,
-                "tool_name": "knowledge_search",
-                "input": {"kb_id": 1, "query": "报销流程是什么？", "top_k": 3},
-                "output": {"chunks": [{"document": "demo-policy.md", "score": 0.91}]},
-                "status": "success",
-                "latency_ms": 42,
-            },
-        )
+        return None
 
 
 persistent_tool_audit_service = PersistentToolAuditService()
