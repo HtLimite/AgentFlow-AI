@@ -5,7 +5,7 @@
 本项目当前验收分为五层：
 
 ```txt
-Docker 基础设施 → uv 后端 → 接口验收 → 构建测试 → 页面验收
+Docker 基础设施 → uv 后端 → 持久化接口验收 → 构建测试 → 页面验收
 ```
 
 V2/V3 的主验收路径必须启动 Docker 基础设施。内存 fallback 只用于开发兜底，不能作为主要验收结论。
@@ -69,6 +69,7 @@ uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 curl http://localhost:8000/health
+curl http://localhost:8000/api/system/persistence/health
 ```
 
 ## 2. 接口验收
@@ -91,16 +92,17 @@ bash scripts/verify-local.sh
 |---|---|---|
 | 1 | 后端健康检查 | `GET /health` |
 | 2 | 系统模块健康检查 | `GET /api/system/health/full` |
-| 3 | Dashboard 聚合 | `GET /api/dashboard/summary` |
-| 4 | 知识库列表 | `GET /api/knowledge-bases` |
-| 5 | 知识库 RAG 问答 | `POST /api/knowledge-bases/1/query` |
-| 6 | 工具列表 | `GET /api/tools` |
-| 7 | Agent 工具调用与 trace | `POST /api/agents/1/chat` |
-| 8 | 工具审计统计 | `GET /api/audit/tools/summary` |
-| 9 | 工具审计记录 | `GET /api/audit/tools` |
-| 10 | Prompt 列表 | `GET /api/prompts` |
-| 11 | Workflow 运行 | `POST /api/workflows/1/run` |
-| 12 | Eval 评测运行 | `POST /api/evals/runs` |
+| 3 | 严格持久化健康检查 | `GET /api/system/persistence/health` |
+| 4 | Dashboard 聚合 | `GET /api/dashboard/summary` |
+| 5 | 知识库列表 | `GET /api/knowledge-bases` |
+| 6 | 知识库 RAG 问答 | `POST /api/knowledge-bases/1/query` |
+| 7 | 工具列表 | `GET /api/tools` |
+| 8 | Agent 工具调用与 trace | `POST /api/agents/1/chat` |
+| 9 | 工具审计统计 | `GET /api/audit/tools/summary` |
+| 10 | 工具审计记录 | `GET /api/audit/tools` |
+| 11 | Prompt 列表 | `GET /api/prompts` |
+| 12 | Workflow 运行 | `POST /api/workflows/1/run` |
+| 13 | Eval 评测运行 | `POST /api/evals/runs` |
 
 ## 3. 后端测试
 
@@ -153,7 +155,7 @@ pnpm build:web
 
 ## 6. 完整 Docker 模式
 
-完整 Docker 模式不是你当前推荐开发方式，但仍保留用于部署演示：
+完整 Docker 模式不是当前推荐开发方式，但仍保留用于部署演示：
 
 ```bash
 docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
@@ -167,11 +169,15 @@ docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
 
 说明数据库不可用或相关表未初始化。先启动基础设施：
 
-```bash
+```cmd
 scripts\dev-infra.cmd
 ```
 
 再重启 uv 后端。
+
+### Health 通过，但 persistence health 失败
+
+这说明后端进程启动了，但数据库没有连通或表结构没初始化。检查 Docker Desktop、PostgreSQL 容器和 `.env` 地址。
 
 ### Health 通过，但 Settings 保存失败
 
