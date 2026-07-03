@@ -1,33 +1,93 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/components/ui/cn";
 import { navigationItems } from "@/lib/navigation";
 
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-72 shrink-0 border-r border-white/10 bg-slate-950/70 p-5 lg:block">
-        <div className="mb-8">
-          <div className="text-xl font-bold">AgentFlow-AI</div>
+    <div className="min-h-screen bg-transparent">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-white/10 bg-slate-950/85 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl lg:flex lg:flex-col">
+        <Link href="/dashboard" className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-blue-300/40 hover:bg-blue-400/10">
+          <div className="text-xl font-bold tracking-tight">AgentFlow-AI</div>
           <div className="mt-1 text-sm text-slate-400">企业级 AI Agent 平台</div>
-        </div>
-        <nav className="space-y-2">
-          {navigationItems.map((item) => (
-            <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">
-              <span className="w-5 text-center text-slate-400">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
+        </Link>
+
+        <nav className="mt-6 flex-1 space-y-1 overflow-y-auto pr-1">
+          {navigationItems.map((item) => {
+            const active = isActivePath(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  active
+                    ? "border border-blue-300/30 bg-blue-500/15 text-white shadow-lg shadow-blue-950/20"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-semibold", active ? "border-blue-300/40 bg-blue-400/20 text-blue-100" : "border-white/10 bg-white/5 text-slate-400 group-hover:text-white")}>{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </Link>
+            );
+          })}
         </nav>
-      </aside>
-      <main className="flex-1 p-5 lg:p-8">
-        <header className="mb-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 backdrop-blur">
-          <div>
-            <div className="text-sm text-slate-400">真实运行时 · RAG / Agent / Workflow / Eval</div>
-            <h1 className="text-lg font-semibold">AI 工作流控制台</h1>
+
+        <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium">Local Runtime</span>
+            <Badge variant="success">Ready</Badge>
           </div>
-          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">Local Ready</div>
+          <p className="mt-2 text-xs leading-5 text-emerald-100/70">固定侧栏，内容区域独立滚动，适合控制台长页面使用。</p>
+        </div>
+      </aside>
+
+      <div className="lg:pl-72">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
+          <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-5 lg:px-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Runtime Console</div>
+                <h1 className="mt-1 text-lg font-semibold text-white">AI 工作流控制台</h1>
+              </div>
+              <div className="hidden items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 sm:flex">
+                <span className="h-2 w-2 rounded-full bg-emerald-300" />
+                Local Ready
+              </div>
+            </div>
+
+            <nav className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+              {navigationItems.map((item) => {
+                const active = isActivePath(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "shrink-0 rounded-full border px-3 py-2 text-xs transition",
+                      active ? "border-blue-300/40 bg-blue-500/20 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         </header>
-        {children}
-      </main>
+
+        <main className="mx-auto max-w-[1600px] px-4 py-5 sm:px-5 lg:px-8 lg:py-8">{children}</main>
+      </div>
     </div>
   );
 }
