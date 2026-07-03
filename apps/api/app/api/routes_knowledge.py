@@ -71,6 +71,20 @@ async def upload_document(kb_id: int, file: UploadFile, session: AsyncSession = 
     return document
 
 
+@router.post("/{kb_id}/documents/{document_id}/remove")
+async def remove_document(kb_id: int, document_id: int, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    try:
+        removed = await persistent_knowledge_service.remove_document(session, kb_id, document_id)
+    except Exception as exc:
+        if is_database_error(exc):
+            removed = knowledge_service.remove_document(kb_id, document_id)
+        else:
+            raise
+    if not removed:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return {"removed": True, "document_id": document_id}
+
+
 @router.post("/{kb_id}/query")
 async def query_knowledge_base(kb_id: int, payload: KnowledgeQueryRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
