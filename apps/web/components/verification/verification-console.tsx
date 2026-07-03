@@ -9,6 +9,7 @@ interface HealthResult {
   status: string;
   modules: Record<string, boolean>;
   counts: Record<string, number>;
+  failed_modules?: string[];
 }
 
 const manualChecks = [
@@ -29,7 +30,14 @@ export function VerificationConsole() {
   async function run() {
     try {
       setError("");
-      setResult(await apiGet<HealthResult>("/api/system/health/full"));
+      const health = await apiGet<HealthResult>("/api/system/health/full");
+      setResult(health);
+      const failedModules = health.failed_modules ?? Object.entries(health.modules)
+        .filter(([, ok]) => !ok)
+        .map(([key]) => key);
+      if (health.status !== "ok" || failedModules.length > 0) {
+        throw new Error(`验收失败：${failedModules.join(", ") || health.status}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "验收失败");
     }
