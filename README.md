@@ -45,6 +45,36 @@ Windows PowerShell 可用：
 Copy-Item .env.example .env
 ```
 
+## uv 后端环境
+
+后端位于 `apps/api`，要求 Python 3.12+，推荐用 `uv` 创建和管理虚拟环境。
+
+首次安装后端依赖：
+
+```bash
+cd apps/api
+uv sync
+```
+
+Windows 本地启动 FastAPI：
+
+```cmd
+scripts\dev-api-uv.cmd
+```
+
+也可以手动启动：
+
+```bash
+cd apps/api
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+如果本机还没有安装 `uv`，先安装后再执行上述命令：
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
 ## 推荐本地启动
 
 推荐方式：**Docker 启动 PostgreSQL / Redis / MinIO，本地 uv 启动 FastAPI，本地 pnpm 启动 Next.js**。
