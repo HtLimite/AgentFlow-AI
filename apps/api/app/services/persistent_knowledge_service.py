@@ -14,30 +14,69 @@ from app.services.rerank_service import rerank_service
 from app.services.text_cleaner import clean_extracted_text, make_snippet
 from app.services.vector_service import vector_service
 
-CJK_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
-WORD_RE = re.compile(r"[a-zA-Z0-9_]{2,}")
+CJK_RE = re.compile(r"[\u4e00-\u9fff]+")
+WORD_RE = re.compile(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]*")
 MIN_RELEVANCE_SCORE = 0.18
-STOP_TERMS = {"什么", "怎么", "如何", "是否", "the", "and"}
+STOP_TERMS = {"什么", "怎么", "如何", "是否", "一个", "这个", "项目", "介绍", "the", "and", "for", "with"}
+INTENT_KEYWORDS = {"一句话", "定位", "最终定位", "项目简介", "目标", "核心", "mvp", "模块", "技术栈", "简历", "闭环"}
 
 
 def _query_terms(text_value: str) -> set[str]:
     cleaned = clean_extracted_text(text_value).lower()
-    terms = set(WORD_RE.findall(cleaned))
-    terms.update(CJK_RE.findall(cleaned))
-    return {term for term in terms if term not in STOP_TERMS}
+    terms = {term for term in WORD_RE.findall(cleaned) if term not in STOP_TERMS and len(term) > 1}
+    for block in CJK_RE.findall(cleaned):
+        if block not in STOP_TERMS and len(block) > 1:
+            terms.add(block)
+        for size in (2, 3, 4):
+            for index in range(0, max(len(block) - size + 1, 0)):
+                token = block[index : index + size]
+                if token not in STOP_TERMS:
+                    terms.add(token)
+    return terms
 
 
 def _lexical_score(question: str, content: str) -> float:
     terms = _query_terms(question)
     if not terms:
         return 0.0
+    lower_question = clean_extracted_text(question).lower()
     lower_content = clean_extracted_text(content).lower()
     hits = sum(1 for term in terms if term in lower_content)
-    return hits / len(terms)
+    base_score = hits / len(terms)
+    bonus = _intent_bonus(lower_question, lower_content)
+    return min(1.0, base_score + bonus)
+
+
+def _intent_bonus(question: str, content: str) -> float:
+    bonus = 0.0
+    if "ai devops control panel" in question and "ai devops control panel" in content:
+        bonus += 0.18
+    if any(keyword in question for keyword in ("一句话", "介绍", "定位")):
+        if "一句话介绍" in content or "一句话状态" in content:
+            bonus += 0.45
+        if "最终定位" in content or "项目最终定位" in content:
+            bonus += 0.35
+        if "面向" in content and "控制台" in content:
+            bonus += 0.25
+    for keyword in INTENT_KEYWORDS:
+        if keyword in question and keyword in content:
+            bonus += 0.12
+    return min(0.65, bonus)
 
 
 def _vector_literal(values: list[float]) -> str:
     return "[" + ",".join(f"{float(value):.6f}" for value in values) + "]"
+
+
+def _merge_candidates(*candidate_groups: list[dict[str, object]], limit: int) -> list[dict[str, object]]:
+    merged: dict[tuple[str, int], dict[str, object]] = {}
+    for group in candidate_groups:
+        for item in group:
+            key = (str(item.get("document") or "unknown"), int(item.get("chunk_index") or 0))
+            current = merged.get(key)
+            if current is None or float(item.get("score") or 0) > float(current.get("score") or 0):
+                merged[key] = item
+    return sorted(merged.values(), key=lambda row: float(row.get("score") or 0), reverse=True)[:limit]
 
 
 class PersistentKnowledgeService:
@@ -80,7 +119,7 @@ class PersistentKnowledgeService:
 
         parsed = document_parser.parse_upload(filename, raw_content)
         parsed_content = clean_extracted_text(str(parsed["content"]))
-        chunks = chunk_service.split_text(parsed_content, chunk_size=800, overlap=150)
+        chunks = chunk_service.split_text(parsed_content, chunk_size=900, overlap=120)
         file_type = str(parsed.get("file_type") or (filename.rsplit(".", 1)[-1] if "." in filename else "text"))
         document = KnowledgeDocument(
             kb_id=kb_id,
@@ -129,9 +168,9 @@ class PersistentKnowledgeService:
 
     async def search(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> list[dict[str, object]]:
         embedding = await embedding_service.embed_for_rag(session, question)
-        candidates = await self._search_pgvector(session, kb_id, question, embedding.vector, top_k)
-        if not candidates:
-            candidates = await self._search_metadata_hybrid(session, kb_id, question, embedding.vector, top_k)
+        vector_candidates = await self._search_pgvector(session, kb_id, question, embedding.vector, top_k)
+        lexical_candidates = await self._search_metadata_hybrid(session, kb_id, question, embedding.vector, top_k)
+        candidates = _merge_candidates(vector_candidates, lexical_candidates, limit=max(top_k * 6, 20))
         reranked = rerank_service.rerank(question, candidates, top_k)
         for item in reranked:
             item["query_embedding_source"] = embedding.source
@@ -145,10 +184,10 @@ class PersistentKnowledgeService:
             return {
                 "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请确认已上传对应文档，或换一个知识库后再问。",
                 "citations": [],
-                "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "pgvector_sql_rerank", "min_relevance_score": MIN_RELEVANCE_SCORE},
+                "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "hybrid_pgvector_lexical_rerank", "min_relevance_score": MIN_RELEVANCE_SCORE},
             }
-        evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 220)}" for chunk in chunks)
-        strategy = str(chunks[0].get("strategy") or "pgvector_sql_rerank")
+        evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 260)}" for chunk in chunks)
+        strategy = str(chunks[0].get("strategy") or "hybrid_pgvector_lexical_rerank")
         return {
             "answer": f"根据知识库命中片段回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}",
             "citations": chunks,
@@ -211,40 +250,40 @@ class PersistentKnowledgeService:
                 LIMIT :limit
                 """
             ),
-            {"kb_id": kb_id, "query_embedding": _vector_literal(query_vector), "limit": max(top_k * 8, 30)},
+            {"kb_id": kb_id, "query_embedding": _vector_literal(query_vector), "limit": max(top_k * 10, 40)},
         )
         rows: list[dict[str, object]] = []
         for row in result.mappings().all():
             content = clean_extracted_text(str(row["content"]))
             lexical_score = _lexical_score(question, content)
             vector_score = max(0.0, float(row["vector_score"] or 0))
-            score = round(lexical_score * 0.35 + vector_score * 0.65, 4)
+            score = round(lexical_score * 0.55 + vector_score * 0.45, 4)
             if score < MIN_RELEVANCE_SCORE:
                 continue
             metadata = row.get("metadata") if isinstance(row, dict) else row["metadata"]
             rows.append(
                 {
                     "chunk_index": int(row["chunk_index"]),
-                    "content": make_snippet(content, 500),
+                    "content": make_snippet(content, 700),
                     "token_count": int(row["token_count"] or 0),
                     "document": row["document"],
                     "score": score,
                     "lexical_score": round(lexical_score, 4),
                     "vector_score": round(vector_score, 4),
-                    "strategy": "pgvector_sql_rerank",
+                    "strategy": "hybrid_pgvector_lexical_rerank",
                     "embedding_source": (metadata or {}).get("embedding_source") if isinstance(metadata, dict) else None,
                     "embedding_model": (metadata or {}).get("embedding_model") if isinstance(metadata, dict) else None,
                 }
             )
-        return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[: max(top_k * 3, top_k)]
+        return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[: max(top_k * 4, top_k)]
 
     async def _search_metadata_hybrid(self, session: AsyncSession, kb_id: int, question: str, query_vector: list[float], top_k: int) -> list[dict[str, object]]:
         result = await session.execute(
             select(KnowledgeChunk, KnowledgeDocument.filename)
             .join(KnowledgeDocument, KnowledgeDocument.id == KnowledgeChunk.document_id)
             .where(KnowledgeChunk.kb_id == kb_id, KnowledgeDocument.parse_status == "ready")
-            .order_by(KnowledgeChunk.id.desc())
-            .limit(200)
+            .order_by(KnowledgeChunk.id.asc())
+            .limit(500)
         )
         rows: list[dict[str, object]] = []
         for chunk, filename in result.all():
@@ -253,22 +292,22 @@ class PersistentKnowledgeService:
             content = clean_extracted_text(chunk.content)
             lexical_score = _lexical_score(question, content)
             vector_score = max(0.0, vector_service.cosine(query_vector, embedding))
-            score = round(lexical_score * 0.75 + vector_score * 0.25, 4)
+            score = round(lexical_score * 0.9 + vector_score * 0.1, 4)
             if score < MIN_RELEVANCE_SCORE:
                 continue
             rows.append(
                 {
                     "chunk_index": chunk.chunk_index,
-                    "content": make_snippet(content, 500),
+                    "content": make_snippet(content, 700),
                     "token_count": chunk.token_count,
                     "document": filename,
                     "score": score,
                     "lexical_score": round(lexical_score, 4),
                     "vector_score": round(vector_score, 4),
-                    "strategy": "metadata_vector_rerank",
+                    "strategy": "metadata_lexical_rerank",
                 }
             )
-        return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[: max(top_k * 3, top_k)]
+        return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[: max(top_k * 4, top_k)]
 
     async def _ensure_default_base(self, session: AsyncSession) -> None:
         existing = await session.scalar(select(KnowledgeBase.id).limit(1))
