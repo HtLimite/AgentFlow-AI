@@ -10,6 +10,7 @@ from app.models.domain import KnowledgeBase, KnowledgeChunk, KnowledgeDocument
 from app.services.chunk_service import chunk_service
 from app.services.document_parser import document_parser
 from app.services.embedding_service import embedding_service
+from app.services.rag_answer_service import rag_answer_service
 from app.services.rerank_service import rerank_service
 from app.services.text_cleaner import clean_extracted_text, make_snippet
 from app.services.vector_service import vector_service
@@ -180,16 +181,12 @@ class PersistentKnowledgeService:
 
     async def answer(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = await self.search(session, kb_id, question, top_k)
-        if not chunks:
-            return {
-                "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请确认已上传对应文档，或换一个知识库后再问。",
-                "citations": [],
-                "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "hybrid_pgvector_lexical_rerank", "min_relevance_score": MIN_RELEVANCE_SCORE},
-            }
-        evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 260)}" for chunk in chunks)
-        strategy = str(chunks[0].get("strategy") or "hybrid_pgvector_lexical_rerank")
+        answer_payload = rag_answer_service.build_answer(question, chunks)
+        strategy = str(chunks[0].get("strategy") or "hybrid_pgvector_lexical_rerank") if chunks else "hybrid_pgvector_lexical_rerank"
         return {
-            "answer": f"根据知识库命中片段回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}",
+            "answer": answer_payload["answer"],
+            "summary": answer_payload["summary"],
+            "evidence": answer_payload["evidence"],
             "citations": chunks,
             "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": strategy, "rerank": True, "min_relevance_score": MIN_RELEVANCE_SCORE},
         }
