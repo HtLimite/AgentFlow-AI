@@ -3,12 +3,12 @@
 企业级 AI Agent 工作流与知识库平台，面向企业知识库、客服运营、内部提效和流程自动化场景。
 
 ```txt
-模型接入 → 文档解析 → 知识库 RAG → Agent 工具调用 → 工作流执行 → Prompt 管理 → 调用日志 → 效果评测 → Docker 部署
+模型接入 → 文档解析 → 知识库 RAG → Agent 工具调用 → 工作流画布 → 工具审计 → Prompt 管理 → 效果评测 → Docker 部署
 ```
 
 ## 当前状态
 
-当前项目处于 **V2 工程基础态 / 可本地演示态**。
+当前项目已推进到 **V3 平台展示态 / 可本地演示态**。
 
 已经可以本地验证：
 
@@ -16,10 +16,11 @@
 - 模型供应商配置、固定选项输入、密钥脱敏。
 - Chat、Knowledge、Agent、Tools、Workflow、Prompt、Eval、Dashboard 主链路。
 - PDF 解析、文本清洗、RAG 问答、引用来源展示。
+- V3 可视化工作流画布、工具调用审计、Prompt/Eval 对比中心、在线 Demo 动线。
 - Windows 本地验收脚本、前端构建、后端测试。
 - Docker Compose 基础设施：PostgreSQL、Redis、MinIO、API、Web、Nginx。
 
-当前真实状态和边界见：`docs/current-status.md`。
+当前真实状态和边界见：`docs/current-status.md`、`docs/v2-completion.md`、`docs/v3-completion.md`。
 
 ## 技术栈
 
@@ -100,21 +101,23 @@ python -m compileall app
 python -m pytest
 ```
 
-详细验收见：`docs/verification.md` 和 `docs/acceptance.md`。
+详细验收见：`docs/verification.md`、`docs/acceptance.md` 和 `docs/v3-completion.md`。
 
 ## 演示路径
 
 | 模块 | 路径 | 演示点 |
 |---|---|---|
+| Demo | `/demo` | 在线 Demo 演示动线与讲解词 |
 | Showcase | `/showcase` | 作品展示与面试讲解入口 |
 | Dashboard | `/dashboard` | 调用量、Token、耗时、失败率看板 |
 | Settings | `/settings` | 模型供应商固定选项、连接测试、密钥脱敏 |
 | Chat | `/chat` | 调用后端 Chat 接口 |
 | Knowledge | `/knowledge` | 文档上传、清洗、切片、RAG 问答、引用来源 |
-| Agents | `/agents` | Agent 调用知识库工具并展示 tool_calls |
-| Workflows | `/workflows` | 工作流节点运行链路 |
+| Agents | `/agents` | Agent 调用工具并返回 trace_id / audit_id |
+| Workflows | `/workflows` | V3 可视化工作流画布与节点输出 |
+| Audit | `/audit` | 工具调用审计记录、统计和详情 |
 | Prompts | `/prompts` | Prompt 变量渲染与测试 |
-| Evals | `/evals` | 评测运行与逐题评分 |
+| Evals | `/evals` | Prompt / Eval 三组对比中心 |
 | Verification | `/verification` | 系统体检与阶段验收 |
 
 ## 文档入口
@@ -124,6 +127,8 @@ python -m pytest
 | 文档 | 作用 |
 |---|---|
 | `docs/current-status.md` | 当前项目真实状态与边界 |
+| `docs/v3-completion.md` | V3 完成说明与验收范围 |
+| `docs/v2-completion.md` | V2 工程基础态说明 |
 | `docs/local-development.md` | Windows 本地启动和 Docker 基础设施 |
 | `docs/verification.md` | 验收命令与验收标准 |
 | `docs/acceptance.md` | 阶段验收清单 |
@@ -137,14 +142,15 @@ python -m pytest
 
 ## 当前边界
 
-当前版本不是完整生产级平台，以下属于后续增强：
+当前版本仍不是完整生产级平台，以下属于后续 V4 / 生产化增强：
 
-- 真实 Embedding + pgvector 相似度 SQL 检索。
+- React Flow 真拖拽工作流画布。
+- 审计日志数据库持久化与筛选。
+- 真实 pgvector 相似度 SQL 检索。
 - 更完整的模型流式输出。
-- React Flow 拖拽工作流画布。
-- 多租户 RBAC 与审计详情页。
-- 在线 Demo、截图、演示视频。
+- 多租户 RBAC 页面。
+- 在线部署、截图、演示视频。
 
 ## 简历关键词
 
-RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Prompt Versioning、Workflow Engine、LLM Observability、Cost Dashboard、Docker Compose。
+RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Tool Audit、Prompt Versioning、Workflow Canvas、LLM Observability、Eval Compare、Docker Compose。
