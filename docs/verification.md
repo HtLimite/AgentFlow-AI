@@ -8,7 +8,7 @@
 Docker 基础设施 → uv 后端 → 持久化接口验收 → 构建测试 → 页面验收
 ```
 
-V2/V3 的主验收路径必须启动 Docker 基础设施。内存 fallback 只用于开发兜底，不能作为主要验收结论。
+V4 的主验收路径必须启动 Docker 基础设施。内存 fallback 只用于开发兜底，不能作为主要验收结论。
 
 ## 0. 启动 Docker 基础设施
 
@@ -62,6 +62,7 @@ bash scripts/dev-api-uv.sh
 
 ```bash
 cd apps/api
+uv sync
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -72,7 +73,7 @@ curl http://localhost:8000/health
 curl http://localhost:8000/api/system/persistence/health
 ```
 
-## 2. 接口验收
+## 2. 一键接口验收
 
 Windows：
 
@@ -86,23 +87,30 @@ Linux / macOS / Git Bash：
 bash scripts/verify-local.sh
 ```
 
-### 当前覆盖项
+当前脚本覆盖 14 步：
 
 | 步骤 | 验证内容 | 接口 |
 |---|---|---|
 | 1 | 后端健康检查 | `GET /health` |
 | 2 | 系统模块健康检查 | `GET /api/system/health/full` |
 | 3 | 严格持久化健康检查 | `GET /api/system/persistence/health` |
-| 4 | Dashboard 聚合 | `GET /api/dashboard/summary` |
-| 5 | 知识库列表 | `GET /api/knowledge-bases` |
-| 6 | 知识库 RAG 问答 | `POST /api/knowledge-bases/1/query` |
-| 7 | 工具列表 | `GET /api/tools` |
-| 8 | Agent 工具调用与 trace | `POST /api/agents/1/chat` |
-| 9 | 工具审计统计 | `GET /api/audit/tools/summary` |
-| 10 | 工具审计记录 | `GET /api/audit/tools` |
-| 11 | Prompt 列表 | `GET /api/prompts` |
-| 12 | Workflow 运行 | `POST /api/workflows/1/run` |
-| 13 | Eval 评测运行 | `POST /api/evals/runs` |
+| 4 | RBAC 请求上下文 | `GET /api/system/rbac/context` |
+| 5 | Dashboard 聚合 | `GET /api/dashboard/summary` |
+| 6 | 知识库列表 | `GET /api/knowledge-bases` |
+| 7 | 知识库 RAG 问答 | `POST /api/knowledge-bases/1/query` |
+| 8 | 工具列表 | `GET /api/tools` |
+| 9 | Agent 工具调用与持久化审计 | `POST /api/agents/1/chat` |
+| 10 | 工具审计统计 | `GET /api/audit/tools/summary` |
+| 11 | 工具审计记录 | `GET /api/audit/tools` |
+| 12 | Prompt 列表 | `GET /api/prompts` |
+| 13 | Workflow 运行 | `POST /api/workflows/1/run` |
+| 14 | Eval 评测运行 | `POST /api/evals/runs` |
+
+通过标准：
+
+```txt
+AgentFlow-AI V4 persistent verification completed.
+```
 
 ## 3. 后端测试
 
@@ -140,20 +148,28 @@ pnpm build:web
 
 | 页面 | 验收点 |
 |---|---|
-| `/demo` | 可看到 V3 在线演示动线 |
+| `/demo` | 可看到 V4 在线演示动线 |
 | `/showcase` | 可看到作品展示入口 |
 | `/dashboard` | 可看到调用量、Token、耗时、失败率等看板信息 |
 | `/settings` | 可新增供应商，供应商固定格式字段为下拉选项，API Key 脱敏回显 |
 | `/chat` | 可发送问题并收到后端回答 |
 | `/knowledge` | 可上传 txt/md/pdf，问答返回引用来源 |
-| `/agents` | 可看到 Agent 调用工具链路、trace_id、audit_id |
-| `/workflows` | 可运行 V3 可视化工作流画布 |
-| `/audit` | 可查看工具调用审计记录与详情 |
+| `/agents` | 可看到 Agent 调用工具链路、trace_id、persistent_audit_id |
+| `/workflows` | 可看到 React Flow 画布、拖拽节点、连线和运行结果 |
+| `/audit` | 可查看数据库优先的工具调用审计记录与详情 |
 | `/prompts` | 可测试 Prompt 变量渲染 |
 | `/evals` | 可运行 Prompt/Eval 对比 |
 | `/verification` | 页面内系统体检通过 |
 
-## 6. 完整 Docker 模式
+## 6. PDF / RAG 专项验收
+
+- 上传 PDF 后不再出现 `%PDF-1.7`、`FlateDecode` 这类二进制内容。
+- 上传 PDF 后不再出现 `由PDA回调` 这类控制字符。
+- 扫描版 PDF 无文本时能返回明确错误，而不是入库乱码。
+- RAG 回答里有 `citations`、`document`、`score`、`chunk_index`。
+- RAG debug 中能看到当前检索策略。
+
+## 7. 完整 Docker 模式
 
 完整 Docker 模式不是当前推荐开发方式，但仍保留用于部署演示：
 
@@ -163,7 +179,7 @@ docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
 
 注意：当前 `.env.example` 默认适配本地 uv 后端。如果要完整 Docker 跑 api，`DATABASE_URL`、`REDIS_URL`、`MINIO_ENDPOINT` 需要改为 Docker service name，例如 `postgres`、`redis`、`minio`。
 
-## 7. 常见判断
+## 8. 常见判断
 
 ### 接口返回 fallback 或 strategy=local_vector
 

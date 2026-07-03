@@ -10,7 +10,7 @@ Windows 本地推荐：
 PostgreSQL / Redis / MinIO：Docker 启动
 ```
 
-这不是“只跑 demo 内存效果”。V2/V3 的主路径需要 Docker 基础设施提供数据库、缓存和对象存储；内存 fallback 只作为数据库不可用时的兜底。
+这不是“只跑 demo 内存效果”。V4 的主路径需要 Docker 基础设施提供数据库、缓存和对象存储；内存 fallback 只作为数据库不可用时的兜底。
 
 ## 1. 准备环境
 
@@ -133,14 +133,14 @@ http://localhost:3000
 
 | 页面 | 地址 | 作用 |
 |---|---|---|
-| Demo | `/demo` | V3 演示动线 |
+| Demo | `/demo` | V4 演示动线 |
 | Showcase | `/showcase` | 作品展示入口 |
 | Dashboard | `/dashboard` | 看板与观测数据 |
 | Settings | `/settings` | 模型供应商配置 |
 | Chat | `/chat` | Chat Playground |
 | Knowledge | `/knowledge` | 文档上传、RAG 问答 |
 | Agents | `/agents` | Agent 工具调用与 trace |
-| Workflows | `/workflows` | V3 可视化工作流画布 |
+| Workflows | `/workflows` | React Flow 工作流画布 |
 | Audit | `/audit` | 工具调用审计 |
 | Prompts | `/prompts` | Prompt 模板与变量 |
 | Evals | `/evals` | Prompt/Eval 对比 |

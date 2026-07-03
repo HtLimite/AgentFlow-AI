@@ -9,8 +9,8 @@ from app.services.rag_service import rag_service
 DEFAULT_WORKFLOW = WorkflowDefinition(
     nodes=[
         {"id": "start_1", "type": "start", "data": {}},
-        {"id": "knowledge_1", "type": "knowledge", "data": {"kb_id": 1, "top_k": 3}},
-        {"id": "llm_1", "type": "llm", "data": {"prompt": "根据知识库结果回答：{{question}}"}},
+        {"id": "knowledge_1", "type": "knowledge", "data": {"top_k": 3}},
+        {"id": "llm_1", "type": "llm", "data": {"prompt": "Use upstream context to answer the user question."}},
         {"id": "end_1", "type": "end", "data": {}},
     ],
     edges=[
@@ -54,7 +54,8 @@ class WorkflowEngine:
         if node.type == "start":
             return dict(context.get("input", {}))
         if node.type == "knowledge":
-            kb_id = int(node.data.get("kb_id", 1))
+            raw_kb_id = node.data.get("kb_id")
+            kb_id = int(raw_kb_id) if raw_kb_id not in {None, ""} else None
             top_k = int(node.data.get("top_k", 3))
             return await rag_service.answer(kb_id=kb_id, question=question, top_k=top_k)
         if node.type == "llm":

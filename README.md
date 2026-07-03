@@ -8,7 +8,7 @@
 
 ## 当前状态
 
-当前项目已推进到 **V3 平台展示态 / 本地持久化演示态**。
+当前项目已推进到 **V4 工程增强态 / 本地持久化演示态**。
 
 已经可以本地验证：
 
@@ -18,17 +18,18 @@
 - 模型供应商配置、固定选项输入、密钥脱敏。
 - Chat、Knowledge、Agent、Tools、Workflow、Prompt、Eval、Dashboard 主链路。
 - PDF 解析、文本清洗、RAG 问答、引用来源展示。
-- V3 可视化工作流画布、工具调用审计、Prompt/Eval 对比中心、在线 Demo 动线。
-- Windows 本地验收脚本、前端构建、后端测试。
+- React Flow 工作流画布、工具调用审计持久化、Prompt/Eval 对比中心、Demo 动线。
+- pgvector SQL 检索基础能力、多租户 RBAC 请求上下文。
+- Windows 本地 14 步验收脚本、前端构建、后端测试。
 
-当前真实状态和边界见：`docs/current-status.md`、`docs/v2-completion.md`、`docs/v3-completion.md`。
+当前真实状态和边界见：`docs/current-status.md`。
 
 ## 技术栈
 
-- 前端：Next.js、React、TypeScript、Tailwind CSS
+- 前端：Next.js、React、TypeScript、Tailwind CSS、React Flow
 - 后端：FastAPI、SQLAlchemy、PostgreSQL、pgvector、Redis、MinIO
 - AI：OpenAI-Compatible API、Embedding、RAG、Agent Tools、SSE Streaming
-- 工程：pnpm workspace、Docker Compose、GitHub Actions
+- 工程：pnpm workspace、uv、Docker Compose、GitHub Actions
 
 ## 快速开始
 
@@ -79,7 +80,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 推荐方式：**Docker 启动 PostgreSQL / Redis / MinIO，本地 uv 启动 FastAPI，本地 pnpm 启动 Next.js**。
 
-这不是只跑内存 Demo。V2/V3 主验收路径要求数据库真实可连，内存 fallback 只作为兜底。
+这不是只跑内存 Demo。V4 主验收路径要求数据库真实可连，内存 fallback 只作为兜底。
 
 基础设施：
 
@@ -138,7 +139,7 @@ uv run python -m pytest
 curl http://localhost:8000/api/system/persistence/health
 ```
 
-详细验收见：`docs/verification.md`、`docs/acceptance.md` 和 `docs/v3-completion.md`。
+详细验收见：`docs/verification.md`。
 
 ## 演示路径
 
@@ -150,9 +151,9 @@ curl http://localhost:8000/api/system/persistence/health
 | Settings | `/settings` | 模型供应商固定选项、连接测试、密钥脱敏 |
 | Chat | `/chat` | 调用后端 Chat 接口 |
 | Knowledge | `/knowledge` | 文档上传、清洗、切片、RAG 问答、引用来源 |
-| Agents | `/agents` | Agent 调用工具并返回 trace_id / audit_id |
-| Workflows | `/workflows` | V3 可视化工作流画布与节点输出 |
-| Audit | `/audit` | 工具调用审计记录、统计和详情 |
+| Agents | `/agents` | Agent 调用工具并返回 trace_id / persistent_audit_id |
+| Workflows | `/workflows` | React Flow 工作流画布、拖拽、连线、节点输出 |
+| Audit | `/audit` | 数据库优先的工具调用审计记录、统计和详情 |
 | Prompts | `/prompts` | Prompt 变量渲染与测试 |
 | Evals | `/evals` | Prompt / Eval 三组对比中心 |
 | Verification | `/verification` | 系统体检与阶段验收 |
@@ -164,30 +165,26 @@ curl http://localhost:8000/api/system/persistence/health
 | 文档 | 作用 |
 |---|---|
 | `docs/current-status.md` | 当前项目真实状态与边界 |
-| `docs/v3-completion.md` | V3 完成说明与验收范围 |
-| `docs/v2-completion.md` | V2 工程基础态说明 |
 | `docs/local-development.md` | Windows 本地启动和 Docker 基础设施 |
-| `docs/verification.md` | 验收命令与验收标准 |
-| `docs/acceptance.md` | 阶段验收清单 |
+| `docs/verification.md` | 验收命令、验收步骤和常见问题 |
 | `docs/roadmap.md` | 下一阶段计划 |
-| `docs/architecture.md` | 架构设计 |
-| `docs/database.md` | 数据库设计 |
-| `docs/rag.md` | RAG 与 PDF 解析设计 |
-| `docs/agent.md` | Agent 工具调用设计 |
-| `docs/workflow.md` | Workflow 执行设计 |
-| `docs/interview.md` | 面试讲解稿 |
+| `docs/architecture.md` | 总体架构和模块边界 |
+| `docs/modules.md` | RAG、Agent、Workflow、数据库等模块设计 |
+| `docs/showcase.md` | 截图、录屏和作品展示准备 |
+| `docs/interview.md` | 面试讲解稿和简历写法 |
+| `docs/history.md` | V1.5 / V2 / V3 / V4 历史记录 |
 
 ## 当前边界
 
-当前版本仍不是完整生产级平台，以下属于后续 V4 / 生产化增强：
+当前版本是本地可演示的工程增强版，仍不是完整生产级平台。后续重点：
 
-- React Flow 真拖拽工作流画布。
-- 审计日志数据库持久化与筛选。
-- 真实 pgvector 相似度 SQL 检索。
-- 更完整的模型流式输出。
-- 多租户 RBAC 页面。
-- 在线部署、截图、演示视频。
+- 接入真实 Embedding Provider、Rerank 和真实模型评测。
+- 完善 Chat / RAG / Agent / Workflow 的真实模型流式输出。
+- 对每个业务路由强制执行租户隔离和 RBAC 鉴权。
+- 完善审计日志筛选、分页、导出和配置变更审计。
+- 强化 SQL / HTTP 等高风险工具的生产级安全策略。
+- 准备在线部署、截图、GIF 和演示视频。
 
 ## 简历关键词
 
-RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Tool Audit、Prompt Versioning、Workflow Canvas、LLM Observability、Eval Compare、Docker Compose。
+RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Persistent Tool Audit、Prompt Versioning、React Flow Workflow Canvas、LLM Observability、Eval Compare、RBAC Context、Docker Compose。

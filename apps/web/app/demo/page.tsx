@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 
@@ -23,7 +24,7 @@ export default function DemoPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {steps.map((step) => (
-          <Link key={step.href} href={step.href}>
+          <Link key={step.href} href={step.href as Route}>
             <Card className="h-full transition hover:-translate-y-1 hover:border-blue-400/50">
               <h2 className="text-lg font-semibold">{step.title}</h2>
               <p className="mt-3 text-sm text-slate-400">{step.desc}</p>
