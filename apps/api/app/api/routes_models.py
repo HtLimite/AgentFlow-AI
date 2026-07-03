@@ -7,11 +7,13 @@ from app.crud.model_provider import (
     create_model_provider,
     delete_model_provider,
     get_model_provider,
+    get_model_provider_entity,
     list_ai_models,
     list_model_providers,
     update_model_provider,
 )
 from app.schemas.model_provider import AIModelCreate, AIModelRead, ModelProviderCreate, ModelProviderRead, ModelProviderUpdate
+from app.services.provider_adapter import provider_adapter
 
 router = APIRouter()
 
@@ -64,14 +66,17 @@ async def remove_provider(provider_id: int, session: AsyncSession = Depends(get_
 
 @router.post("/{provider_id}/test")
 async def test_model_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
-    provider = await get_model_provider(session, provider_id)
+    provider = await get_model_provider_entity(session, provider_id)
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
     if not provider.enabled:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model provider is disabled")
+    result = await provider_adapter.test(provider)
     return {
         "provider_id": provider_id,
-        "ok": True,
-        "message": "provider config validated",
+        "ok": result.ok,
+        "message": result.message,
+        "latency_ms": result.latency_ms,
         "base_url": provider.base_url,
+        "data": result.data,
     }

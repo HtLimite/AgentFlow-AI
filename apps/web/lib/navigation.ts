@@ -1,4 +1,5 @@
 export const navigationItems = [
+  { href: "/showcase", label: "作品展示", icon: "S" },
   { href: "/dashboard", label: "数据看板", icon: "◎" },
   { href: "/chat", label: "Chat Playground", icon: "✦" },
   { href: "/knowledge", label: "知识库 RAG", icon: "▣" },

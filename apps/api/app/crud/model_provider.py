@@ -48,6 +48,15 @@ async def get_model_provider(session: AsyncSession, provider_id: int) -> ModelPr
     return _read_provider(provider) if provider else None
 
 
+async def get_model_provider_entity(session: AsyncSession, provider_id: int) -> ModelProvider | None:
+    return await session.get(ModelProvider, provider_id)
+
+
+async def get_default_model_provider_entity(session: AsyncSession) -> ModelProvider | None:
+    result = await session.scalars(select(ModelProvider).where(ModelProvider.enabled.is_(True)).order_by(ModelProvider.id.desc()).limit(1))
+    return result.first()
+
+
 async def create_model_provider(session: AsyncSession, payload: ModelProviderCreate) -> ModelProviderRead:
     provider = ModelProvider(
         name=payload.name,
