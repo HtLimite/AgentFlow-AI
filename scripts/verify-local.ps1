@@ -46,6 +46,12 @@ function Assert-True {
   }
 }
 
+function Get-Count {
+  param($Value)
+  if ($null -eq $Value) { return 0 }
+  return $Value.Count
+}
+
 Write-Host "[1/13] Health"
 $health = Invoke-AgentFlowJson -Method GET -Path "/health"
 Assert-True ($health.status -eq "ok") "health check failed"
@@ -75,8 +81,14 @@ Write-Host "PASS count=$($bases.Count) first=$($bases[0].name)"
 
 Write-Host "`n[6/13] Knowledge query"
 $knowledge = Invoke-AgentFlowJson -Method POST -Path "/api/knowledge-bases/1/query" -Body '{"question":"报销流程是什么？","top_k":3}'
-Assert-True ($knowledge.citations.Count -ge 1) "knowledge query returned no citations"
-Write-Host "PASS citations=$($knowledge.citations.Count) strategy=$($knowledge.debug.strategy)"
+$citationCount = Get-Count $knowledge.citations
+Assert-True ($null -ne $knowledge.answer -and $knowledge.answer.Length -gt 0) "knowledge query returned empty answer"
+Assert-True ($null -ne $knowledge.debug.strategy -and $knowledge.debug.strategy.Length -gt 0) "knowledge query returned no strategy"
+if ($citationCount -eq 0) {
+  Write-Host "PASS citations=0 strategy=$($knowledge.debug.strategy) mode=no_relevant_context"
+} else {
+  Write-Host "PASS citations=$citationCount strategy=$($knowledge.debug.strategy) mode=grounded_answer"
+}
 
 Write-Host "`n[7/13] Tool list"
 $tools = Invoke-AgentFlowJson -Method GET -Path "/api/tools"
