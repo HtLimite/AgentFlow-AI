@@ -23,18 +23,13 @@ class PersistentEvalService:
         ]
 
     async def run(self, session: AsyncSession, dataset_id: int, model: str, cases: list[str] | None = None) -> dict[str, object]:
+        await self._ensure_default_dataset(session)
         if cases is None:
             result = await session.scalars(select(EvalCaseModel).where(EvalCaseModel.dataset_id == dataset_id).order_by(EvalCaseModel.id.asc()))
             data = await self._run_dataset_cases(dataset_id, model, result.all())
         else:
             data = await eval_service.run(dataset_id=dataset_id, model=model, cases=cases)
-        run = EvalRunModel(
-            dataset_id=dataset_id,
-            model=model,
-            status="completed",
-            score=Decimal(str(data["score"])),
-            result_json=data,
-        )
+        run = EvalRunModel(dataset_id=dataset_id, model=model, status="completed", score=Decimal(str(data["score"])), result_json=data)
         session.add(run)
         await session.commit()
         await session.refresh(run)
@@ -46,8 +41,8 @@ class PersistentEvalService:
         original = eval_service._datasets.get(dataset_id)
         eval_service._datasets[dataset_id] = EvalDataset(
             id=dataset_id,
-            name=original.name if original else "数据库评测集",
-            description=original.description if original else "来自数据库的评测集",
+            name=original.name if original else "db eval dataset",
+            description=original.description if original else "loaded from database",
             cases=[EvalCase(item.question, item.expected_answer or "", item.scoring_criteria or "") for item in case_models],
         )
         try:
@@ -62,13 +57,13 @@ class PersistentEvalService:
         existing = await session.scalar(select(EvalDatasetModel.id).limit(1))
         if existing:
             return
-        dataset = EvalDatasetModel(id=1, name="企业制度问答评测集", description="用于验证 RAG 回答是否命中制度依据。")
+        dataset = EvalDatasetModel(id=1, name="Default RAG eval", description="Default local eval dataset")
         session.add(dataset)
         await session.flush()
         session.add_all(
             [
-                EvalCaseModel(dataset_id=1, question="报销流程是什么？", expected_answer="提交发票和报销单，负责人审批，财务复核付款。", scoring_criteria="提交 审批 财务复核"),
-                EvalCaseModel(dataset_id=1, question="如何查询售后状态？", expected_answer="通过订单或工单信息查询售后状态。", scoring_criteria="订单 工单 售后状态"),
+                EvalCaseModel(dataset_id=1, question="What is reimbursement flow?", expected_answer="invoice approval finance payment", scoring_criteria="invoice approval finance payment"),
+                EvalCaseModel(dataset_id=1, question="How to check after-sales status?", expected_answer="order ticket status", scoring_criteria="order ticket status"),
             ]
         )
         await session.commit()
