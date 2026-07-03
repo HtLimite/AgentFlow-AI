@@ -1,5 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.services.eval_service import eval_service
 from app.services.knowledge_service import knowledge_service
 from app.services.observability_service import observability_service
@@ -44,12 +47,43 @@ async def full_health_check() -> dict[str, object]:
     }
 
 
+@router.get("/persistence/health")
+async def persistence_health(session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    table_names = [
+        "ai_model_provider",
+        "knowledge_base",
+        "knowledge_document",
+        "knowledge_chunk",
+        "prompt_template",
+        "prompt_version",
+        "workflow_definition",
+        "workflow_run",
+        "workflow_node_run",
+        "eval_dataset",
+        "eval_case",
+        "eval_run",
+        "llm_call_log",
+    ]
+    counts: dict[str, int] = {}
+    for table in table_names:
+        result = await session.execute(text(f"SELECT COUNT(*) FROM {table}"))
+        counts[table] = int(result.scalar_one())
+    return {
+        "status": "ok",
+        "mode": "persistent",
+        "database": "connected",
+        "tables_checked": table_names,
+        "counts": counts,
+    }
+
+
 @router.get("/verification")
 async def verification_plan() -> dict[str, object]:
     return {
         "order": [
             "GET /health",
             "GET /api/system/health/full",
+            "GET /api/system/persistence/health",
             "GET /api/model-providers",
             "POST /api/chat/completions",
             "GET /api/knowledge-bases",
