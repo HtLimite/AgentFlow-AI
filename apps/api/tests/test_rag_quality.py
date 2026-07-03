@@ -1,5 +1,6 @@
 from app.services.chunk_service import chunk_service
 from app.services.persistent_knowledge_service import _lexical_score
+from app.services.rag_answer_service import rag_answer_service
 from app.services.rerank_service import rerank_service
 
 DOC = """# 求职项目实践建议
@@ -58,3 +59,21 @@ def test_rerank_prefers_project_intro_for_intro_question() -> None:
         top_k=1,
     )
     assert "一句话介绍" in ranked[0]["content"]
+
+
+def test_rag_answer_extracts_direct_intro_summary() -> None:
+    payload = rag_answer_service.build_answer(
+        "AI DevOps Control Panel 这个项目的一句话介绍是什么?",
+        [
+            {
+                "document": "求职项目实践建议.md",
+                "content": "0. 项目最终定位\n项目名称：AI DevOps Control Panel\n一句话介绍：\n```txt\n面向个人开发者和小团队的 AI 辅助 DevOps 控制台，支持 GitHub 仓库接入、Docker 服务监控、日志智能诊断、Docker Compose 配置生成、Nginx 反向代理配置生成和部署记录管理。\n```",
+                "score": 0.9,
+                "lexical_score": 1.0,
+                "vector_score": 0.2,
+            }
+        ],
+    )
+    assert payload["summary"] == "面向个人开发者和小团队的 AI 辅助 DevOps 控制台，支持 GitHub 仓库接入、Docker 服务监控、日志智能诊断、Docker Compose 配置生成、Nginx 反向代理配置生成和部署记录管理。"
+    assert "## 答案" in payload["answer"]
+    assert "## 依据" in payload["answer"]
