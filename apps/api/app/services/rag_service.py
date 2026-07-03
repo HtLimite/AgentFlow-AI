@@ -20,7 +20,9 @@ class RAGService:
         except Exception as exc:
             if not is_database_error(exc):
                 raise
-            fallback_kb_id = kb_id or 1
+            fallback_kb_id = self._resolve_memory_kb_id(kb_id)
+            if fallback_kb_id is None:
+                return {"answer": "No fallback knowledge base is available.", "citations": [], "source": "memory_fallback"}
             result = knowledge_service.answer(kb_id=fallback_kb_id, question=question, top_k=top_k)
             result["kb_id"] = fallback_kb_id
             result["source"] = "memory_fallback"
@@ -32,6 +34,12 @@ class RAGService:
             return kb_id
         result = await session.scalars(select(KnowledgeBase.id).order_by(KnowledgeBase.id.asc()).limit(1))
         return result.first()
+
+    def _resolve_memory_kb_id(self, kb_id: int | None) -> int | None:
+        if kb_id is not None:
+            return kb_id
+        bases = knowledge_service.list_bases()
+        return int(bases[0]["id"]) if bases else None
 
 
 rag_service = RAGService()
