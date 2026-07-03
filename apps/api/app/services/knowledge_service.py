@@ -29,14 +29,14 @@ class KnowledgeService:
     def __init__(self) -> None:
         self._kb_ids = count(2)
         self._doc_ids = count(1)
-        demo = KnowledgeBaseRecord(id=1, name="企业制度知识库", description="默认演示知识库")
+        demo = KnowledgeBaseRecord(id=1, name="本地回退知识库", description="仅在数据库不可用时使用的内存回退数据")
         demo_text = "报销流程：员工提交发票和报销单，直属负责人审批，财务复核后付款。"
         demo_doc = KnowledgeDocumentRecord(
             id=next(self._doc_ids),
             kb_id=1,
-            filename="demo-policy.md",
+            filename="memory-fallback-policy.md",
             content=demo_text,
-            chunks=[self._build_chunk("demo-policy.md", demo_text, 0, 32)],
+            chunks=[self._build_chunk("memory-fallback-policy.md", demo_text, 0, 32)],
         )
         demo.documents.append(demo_doc)
         self._items: dict[int, KnowledgeBaseRecord] = {1: demo}
@@ -54,7 +54,7 @@ class KnowledgeService:
         item = self._items.get(kb_id)
         if item is None:
             return []
-        return [self._serialize_document(doc) for doc in item.documents]
+        return [self._serialize_document(doc) for doc in item.documents if doc.parse_status != "removed"]
 
     def add_document(self, kb_id: int, filename: str, raw_content: bytes) -> dict[str, object] | None:
         item = self._items.get(kb_id)
@@ -77,6 +77,17 @@ class KnowledgeService:
         item.documents.append(doc)
         return self._serialize_document(doc)
 
+    def remove_document(self, kb_id: int, document_id: int) -> bool:
+        item = self._items.get(kb_id)
+        if item is None:
+            return False
+        for doc in item.documents:
+            if doc.id == document_id and doc.parse_status != "removed":
+                doc.parse_status = "removed"
+                doc.chunks = []
+                return True
+        return False
+
     def search(self, kb_id: int, question: str, top_k: int = 5) -> list[dict[str, object]]:
         item = self._items.get(kb_id)
         if item is None:
@@ -85,6 +96,8 @@ class KnowledgeService:
         keywords = [part for part in clean_extracted_text(question).lower().split() if part]
         results: list[dict[str, object]] = []
         for doc in item.documents:
+            if doc.parse_status == "removed":
+                continue
             for chunk in doc.chunks:
                 content = clean_extracted_text(str(chunk["content"]))
                 keyword_score = sum(1 for keyword in keywords if keyword in content.lower()) * 0.03
@@ -97,13 +110,13 @@ class KnowledgeService:
     def answer(self, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = self.search(kb_id, question, top_k)
         if not chunks:
-            return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "local_vector"}}
+            return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "memory_fallback_vector"}}
         evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 220)}" for chunk in chunks)
         answer = f"根据知识库命中片段，可回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}"
         return {
             "answer": answer,
             "citations": chunks,
-            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "local_vector"},
+            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "memory_fallback_vector"},
         }
 
     def _build_chunk(self, filename: str, content: str, chunk_index: int, token_count: int) -> dict[str, object]:
@@ -118,8 +131,9 @@ class KnowledgeService:
         }
 
     def _serialize_base(self, item: KnowledgeBaseRecord) -> dict[str, object]:
-        chunk_count = sum(len(doc.chunks) for doc in item.documents)
-        return {"id": item.id, "name": item.name, "description": item.description, "document_count": len(item.documents), "chunk_count": chunk_count, "status": "ready"}
+        active_docs = [doc for doc in item.documents if doc.parse_status != "removed"]
+        chunk_count = sum(len(doc.chunks) for doc in active_docs)
+        return {"id": item.id, "name": item.name, "description": item.description, "document_count": len(active_docs), "chunk_count": chunk_count, "status": "ready"}
 
     def _serialize_document(self, doc: KnowledgeDocumentRecord) -> dict[str, object]:
         return {"id": doc.id, "kb_id": doc.kb_id, "filename": doc.filename, "parse_status": doc.parse_status, "chunk_count": len(doc.chunks)}
