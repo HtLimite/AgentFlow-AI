@@ -70,20 +70,12 @@ class ToolAuditService:
             "success_rate": round((total - failed) / total, 4) if total else 1,
             "avg_latency_ms": avg_latency,
             "tool_counts": tool_counts,
+            "source": "runtime_memory",
+            "note": "Only real tool calls from the current process are listed. No demo audit rows are injected.",
         }
 
     def seed_if_empty(self) -> None:
-        if self._records:
-            return
-        self.record(
-            trace_id="demo-trace-001",
-            agent_id=1,
-            tool_name="knowledge_search",
-            input_data={"kb_id": 1, "query": "报销流程是什么？", "top_k": 3},
-            output_data={"chunks": [{"document": "demo-policy.md", "score": 0.91}]},
-            status="success",
-            latency_ms=42,
-        )
+        return None
 
     def _serialize(self, item: ToolAuditRecord) -> dict[str, Any]:
         return {
