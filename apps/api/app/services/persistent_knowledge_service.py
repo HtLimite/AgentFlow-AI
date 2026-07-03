@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,20 @@ from app.services.document_parser import document_parser
 from app.services.embedding_service import embedding_service
 from app.services.text_cleaner import clean_extracted_text, make_snippet
 from app.services.vector_service import vector_service
+
+_STOP_WORDS = {
+    "什么",
+    "怎么",
+    "如何",
+    "是否",
+    "可以",
+    "一下",
+    "请问",
+    "这个",
+    "那个",
+    "的是",
+    "有吗",
+}
 
 
 class PersistentKnowledgeService:
@@ -79,9 +93,18 @@ class PersistentKnowledgeService:
         await session.refresh(document)
         return self._serialize_document(document)
 
+    async def delete_document(self, session: AsyncSession, kb_id: int, document_id: int) -> bool:
+        document = await session.get(KnowledgeDocument, document_id)
+        if document is None or document.kb_id != kb_id:
+            return False
+        await session.execute(delete(KnowledgeChunk).where(KnowledgeChunk.document_id == document_id))
+        await session.delete(document)
+        await session.commit()
+        return True
+
     async def search(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> list[dict[str, object]]:
         query_vector = await embedding_service.embed(question)
-        keywords = [part for part in clean_extracted_text(question).lower().split() if part]
+        query_terms = self._extract_query_terms(question)
         result = await session.execute(
             select(KnowledgeChunk, KnowledgeDocument.filename)
             .join(KnowledgeDocument, KnowledgeDocument.id == KnowledgeChunk.document_id)
@@ -94,9 +117,13 @@ class PersistentKnowledgeService:
             metadata = chunk.metadata_json or {}
             embedding = metadata.get("embedding", []) if isinstance(metadata, dict) else []
             content = clean_extracted_text(chunk.content)
-            keyword_score = sum(1 for keyword in keywords if keyword in content.lower()) * 0.03
-            vector_score = vector_service.cosine(query_vector, embedding)
-            score = round(max(0.0, vector_score) + keyword_score + 0.6, 4)
+            content_lower = content.lower()
+            keyword_hits = sum(1 for term in query_terms if term in content_lower)
+            keyword_score = keyword_hits / max(1, min(len(query_terms), 8))
+            vector_score = max(0.0, vector_service.cosine(query_vector, embedding))
+            score = round(keyword_score * 0.85 + vector_score * 0.15, 4)
+            if keyword_hits <= 0 and score < 0.72:
+                continue
             rows.append(
                 {
                     "chunk_index": chunk.chunk_index,
@@ -104,6 +131,7 @@ class PersistentKnowledgeService:
                     "token_count": chunk.token_count,
                     "document": filename,
                     "score": score,
+                    "keyword_hits": keyword_hits,
                 }
             )
         return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[:top_k]
@@ -111,12 +139,16 @@ class PersistentKnowledgeService:
     async def answer(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = await self.search(session, kb_id, question, top_k)
         if not chunks:
-            return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_vector"}}
+            return {
+                "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的信息。请确认选择的知识库或上传包含该问题的文档。",
+                "citations": [],
+                "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_keyword_vector", "rejected_low_relevance": True},
+            }
         evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 220)}" for chunk in chunks)
         return {
-            "answer": f"根据数据库知识库命中片段，可回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}",
+            "answer": f"命中 {len(chunks)} 条相关知识片段，请结合引用来源核对。\n\n摘要：\n{evidence}",
             "citations": chunks,
-            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_vector"},
+            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_keyword_vector"},
         }
 
     async def _ensure_default_base(self, session: AsyncSession) -> None:
@@ -141,6 +173,20 @@ class PersistentKnowledgeService:
             )
         )
         await session.commit()
+
+    def _extract_query_terms(self, question: str) -> list[str]:
+        text = clean_extracted_text(question).lower()
+        terms: list[str] = []
+        for part in text.replace("？", " ").replace("?", " ").replace("，", " ").replace("。", " ").split():
+            if len(part) >= 2 and part not in _STOP_WORDS:
+                terms.append(part)
+        cjk_chars = [char for char in text if "\u4e00" <= char <= "\u9fff"]
+        for size in (2, 3, 4):
+            for index in range(0, max(0, len(cjk_chars) - size + 1)):
+                term = "".join(cjk_chars[index : index + size])
+                if term and term not in _STOP_WORDS:
+                    terms.append(term)
+        return list(dict.fromkeys(terms))
 
     def _serialize_base(self, item: KnowledgeBase, document_count: int, chunk_count: int) -> dict[str, object]:
         return {
