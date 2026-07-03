@@ -11,7 +11,7 @@ router = APIRouter()
 
 class EvalRunRequest(BaseModel):
     dataset_id: int = 1
-    model: str = "demo-model"
+    model: str = "local-rag-evaluator"
     cases: list[str] | None = Field(default=None)
 
 
@@ -31,5 +31,5 @@ async def create_eval_run(payload: EvalRunRequest, session: AsyncSession = Depen
         return await persistent_eval_service.run(session, dataset_id=payload.dataset_id, model=payload.model, cases=payload.cases)
     except Exception as exc:
         if is_eval_database_error(exc):
-            return eval_service.run(dataset_id=payload.dataset_id, model=payload.model, cases=payload.cases)
+            return await eval_service.run(dataset_id=payload.dataset_id, model=payload.model, cases=payload.cases)
         raise
