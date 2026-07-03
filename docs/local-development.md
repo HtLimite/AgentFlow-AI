@@ -6,11 +6,11 @@ Windows 本地推荐：
 
 ```txt
 前端 Next.js：本地 pnpm 启动
-后端 FastAPI：本地 uvicorn 启动
+后端 FastAPI：本地 uv 启动
 PostgreSQL / Redis / MinIO：Docker 启动
 ```
 
-这样既保留完整功能需要的基础设施，又方便前后端热更新调试。
+这不是“只跑 demo 内存效果”。V2/V3 的主路径需要 Docker 基础设施提供数据库、缓存和对象存储；内存 fallback 只作为数据库不可用时的兜底。
 
 ## 1. 准备环境
 
@@ -18,6 +18,7 @@ PostgreSQL / Redis / MinIO：Docker 启动
 
 - Node.js 20+
 - pnpm 9+
+- uv
 - Python 3.12+
 - Docker Desktop
 
@@ -36,9 +37,29 @@ Windows PowerShell 没有 `cp` 时可用：
 Copy-Item .env.example .env
 ```
 
-## 2. 启动基础设施
+当前 `.env.example` 默认适配本地 uv 后端，关键地址应该是：
 
-完整功能建议启动 postgres、redis、minio：
+```txt
+DATABASE_URL=postgresql+psycopg://agentflow:agentflow@localhost:5432/agentflow
+REDIS_URL=redis://localhost:6379/0
+MINIO_ENDPOINT=localhost:9000
+```
+
+## 2. 启动 Docker 基础设施
+
+Windows：
+
+```cmd
+scripts\dev-infra.cmd
+```
+
+Linux / macOS / Git Bash：
+
+```bash
+bash scripts/dev-infra.sh
+```
+
+等价命令：
 
 ```bash
 docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres redis minio
@@ -50,26 +71,40 @@ docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres redis
 docker ps
 ```
 
+需要看到：
+
+```txt
+agentflow-postgres
+agentflow-redis
+agentflow-minio
+```
+
 停止基础设施：
 
 ```bash
 docker compose -f deploy/docker-compose.yml --env-file .env down
 ```
 
-完整 Docker 启动，包括 web/api/nginx：
+## 3. 启动 uv 后端
 
-```bash
-docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
+Windows：
+
+```cmd
+scripts\dev-api-uv.cmd
 ```
 
-## 3. 启动后端
+Linux / macOS / Git Bash：
+
+```bash
+bash scripts/dev-api-uv.sh
+```
+
+等价命令：
 
 ```bash
 cd apps/api
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv sync
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 后端地址：
@@ -98,33 +133,81 @@ http://localhost:3000
 
 | 页面 | 地址 | 作用 |
 |---|---|---|
+| Demo | `/demo` | V3 演示动线 |
 | Showcase | `/showcase` | 作品展示入口 |
 | Dashboard | `/dashboard` | 看板与观测数据 |
 | Settings | `/settings` | 模型供应商配置 |
 | Chat | `/chat` | Chat Playground |
 | Knowledge | `/knowledge` | 文档上传、RAG 问答 |
-| Agents | `/agents` | Agent 工具调用 |
-| Workflows | `/workflows` | 工作流执行链路 |
+| Agents | `/agents` | Agent 工具调用与 trace |
+| Workflows | `/workflows` | V3 可视化工作流画布 |
+| Audit | `/audit` | 工具调用审计 |
 | Prompts | `/prompts` | Prompt 模板与变量 |
-| Evals | `/evals` | 评测运行 |
+| Evals | `/evals` | Prompt/Eval 对比 |
 | Verification | `/verification` | 页面内验收中心 |
 
-## 6. Windows 常见问题
+## 6. 验收
 
-### verify-local.cmd 中文乱码
-
-现在脚本只输出 ASCII 验收摘要，避免 Windows 终端中文编码问题。拉取最新代码后执行：
+Windows：
 
 ```cmd
 scripts\verify-local.cmd
 ```
 
+Linux / macOS / Git Bash：
+
+```bash
+bash scripts/verify-local.sh
+```
+
+构建与测试：
+
+```bash
+pnpm --filter @agentflow/web build
+cd apps/api
+uv run python -m compileall app
+uv run python -m pytest
+```
+
+## 7. 完整 Docker 模式
+
+完整 Docker 模式仍然保留，但不是当前推荐开发方式：
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
+```
+
+如果完整 Docker 跑 api，需要把 `.env` 中的服务地址改成 Docker service name：
+
+```txt
+DATABASE_URL=postgresql+psycopg://agentflow:agentflow@postgres:5432/agentflow
+REDIS_URL=redis://redis:6379/0
+MINIO_ENDPOINT=minio:9000
+```
+
+## 8. Windows 常见问题
+
 ### 后端连接数据库失败
 
 先确认 Docker Desktop 已启动，再执行：
 
-```bash
-docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres redis minio
+```cmd
+scripts\dev-infra.cmd
+```
+
+然后重启 uv 后端。
+
+### 使用 uv 后端却连接 postgres 失败
+
+检查 `.env` 是否仍写着 `@postgres:5432`。本地 uv 后端必须使用 `@localhost:5432`。
+
+### 接口返回 fallback 或 strategy=local_vector
+
+说明数据库不可用或表未初始化。重新启动基础设施并重启后端：
+
+```cmd
+scripts\dev-infra.cmd
+scripts\dev-api-uv.cmd
 ```
 
 ### 端口冲突
@@ -142,20 +225,11 @@ docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres redis
 
 如果端口被占用，优先停掉旧进程或旧容器。
 
-## 7. 本地开发最小闭环
+## 9. 本地开发完整闭环
 
-```bash
-# 1. 基础设施
-docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres redis minio
-
-# 2. 后端
-cd apps/api
-.venv\Scripts\activate
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 3. 前端
+```cmd
+scripts\dev-infra.cmd
+scripts\dev-api-uv.cmd
 pnpm dev:web
-
-# 4. 验收
 scripts\verify-local.cmd
 ```
