@@ -27,7 +27,9 @@ class KnowledgeSearchTool:
         except Exception as exc:
             if not is_database_error(exc):
                 raise
-            fallback_kb_id = int(args.get("kb_id") or 1)
+            fallback_kb_id = self._resolve_memory_kb_id(args.get("kb_id"))
+            if fallback_kb_id is None:
+                return {"chunks": [], "source": "memory_fallback", "warning": "No fallback knowledge base is available"}
             return {
                 "kb_id": fallback_kb_id,
                 "chunks": knowledge_service.search(kb_id=fallback_kb_id, question=query, top_k=top_k),
@@ -40,3 +42,9 @@ class KnowledgeSearchTool:
             return int(raw_kb_id)
         result = await session.scalars(select(KnowledgeBase.id).order_by(KnowledgeBase.id.asc()).limit(1))
         return result.first()
+
+    def _resolve_memory_kb_id(self, raw_kb_id: object) -> int | None:
+        if raw_kb_id is not None and str(raw_kb_id).strip() != "":
+            return int(raw_kb_id)
+        bases = knowledge_service.list_bases()
+        return int(bases[0]["id"]) if bases else None
