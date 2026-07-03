@@ -8,17 +8,18 @@
 
 ## 当前状态
 
-当前项目已推进到 **V3 平台展示态 / 可本地演示态**。
+当前项目已推进到 **V3 平台展示态 / 本地持久化演示态**。
 
 已经可以本地验证：
 
 - Next.js 管理台与 FastAPI 后端。
+- Docker 基础设施：PostgreSQL、Redis、MinIO。
+- 本地 uv 后端连接 Docker PostgreSQL，走数据库优先持久化链路。
 - 模型供应商配置、固定选项输入、密钥脱敏。
 - Chat、Knowledge、Agent、Tools、Workflow、Prompt、Eval、Dashboard 主链路。
 - PDF 解析、文本清洗、RAG 问答、引用来源展示。
 - V3 可视化工作流画布、工具调用审计、Prompt/Eval 对比中心、在线 Demo 动线。
 - Windows 本地验收脚本、前端构建、后端测试。
-- Docker Compose 基础设施：PostgreSQL、Redis、MinIO、API、Web、Nginx。
 
 当前真实状态和边界见：`docs/current-status.md`、`docs/v2-completion.md`、`docs/v3-completion.md`。
 
@@ -46,20 +47,20 @@ Copy-Item .env.example .env
 
 ## 推荐本地启动
 
-推荐方式：前后端本地启动，PostgreSQL / Redis / MinIO 用 Docker 启动。
+推荐方式：**Docker 启动 PostgreSQL / Redis / MinIO，本地 uv 启动 FastAPI，本地 pnpm 启动 Next.js**。
 
-```bash
-docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres redis minio
+这不是只跑内存 Demo。V2/V3 主验收路径要求数据库真实可连，内存 fallback 只作为兜底。
+
+基础设施：
+
+```cmd
+scripts\dev-infra.cmd
 ```
 
 后端：
 
-```bash
-cd apps/api
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e .
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```cmd
+scripts\dev-api-uv.cmd
 ```
 
 前端：
@@ -97,8 +98,14 @@ bash scripts/verify-local.sh
 ```bash
 pnpm --filter @agentflow/web build
 cd apps/api
-python -m compileall app
-python -m pytest
+uv run python -m compileall app
+uv run python -m pytest
+```
+
+严格持久化检查：
+
+```bash
+curl http://localhost:8000/api/system/persistence/health
 ```
 
 详细验收见：`docs/verification.md`、`docs/acceptance.md` 和 `docs/v3-completion.md`。
