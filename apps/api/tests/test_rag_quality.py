@@ -2,6 +2,7 @@ from app.services.chunk_service import chunk_service
 from app.services.persistent_knowledge_service import _lexical_score
 from app.services.rag_answer_service import rag_answer_service
 from app.services.rerank_service import rerank_service
+from app.services.text_cleaner import clean_extracted_text
 
 DOC = """# 求职项目实践建议
 
@@ -62,6 +63,9 @@ def test_rerank_prefers_project_intro_for_intro_question() -> None:
 
 
 def test_rag_answer_extracts_direct_intro_summary() -> None:
+    expected_summary = clean_extracted_text(
+        "面向个人开发者和小团队的 AI 辅助 DevOps 控制台，支持 GitHub 仓库接入、Docker 服务监控、日志智能诊断、Docker Compose 配置生成、Nginx 反向代理配置生成和部署记录管理。"
+    )
     payload = rag_answer_service.build_answer(
         "AI DevOps Control Panel 这个项目的一句话介绍是什么?",
         [
@@ -74,6 +78,6 @@ def test_rag_answer_extracts_direct_intro_summary() -> None:
             }
         ],
     )
-    assert payload["summary"] == "面向个人开发者和小团队的 AI 辅助 DevOps 控制台，支持 GitHub 仓库接入、Docker 服务监控、日志智能诊断、Docker Compose 配置生成、Nginx 反向代理配置生成和部署记录管理。"
+    assert clean_extracted_text(payload["summary"]) == expected_summary
     assert "## 答案" in payload["answer"]
     assert "## 依据" in payload["answer"]
