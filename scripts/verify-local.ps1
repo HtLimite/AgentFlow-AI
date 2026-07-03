@@ -100,16 +100,19 @@ Write-Host "`n[6/14] Runtime resources"
 $bases = Invoke-AgentFlowJson -Method GET -Path "/api/knowledge-bases"
 $agents = Invoke-AgentFlowJson -Method GET -Path "/api/agents"
 $workflows = Invoke-AgentFlowJson -Method GET -Path "/api/workflows"
+$datasets = Invoke-AgentFlowJson -Method GET -Path "/api/evals/datasets"
 $models = Invoke-AgentFlowJson -Method GET -Path "/api/model-providers/models/list"
 Assert-True ($bases.Count -ge 1) "knowledge base list is empty"
 Assert-True ($agents.Count -ge 1) "agent list is empty"
 Assert-True ($workflows.Count -ge 1) "workflow list is empty"
+Assert-True ($datasets.Count -ge 1) "eval dataset list is empty"
 $kbId = [int]$bases[0].id
 $agentId = [int]$agents[0].id
 $workflowId = [int]$workflows[0].id
+$datasetId = [int]$datasets[0].id
 $chatModels = @($models | Where-Object { $_.enabled -eq $true -and $_.model_type -eq "chat" })
 $chatModel = if ($env:AGENTFLOW_VERIFY_MODEL) { $env:AGENTFLOW_VERIFY_MODEL } elseif ($chatModels.Count -gt 0) { [string]$chatModels[0].model_name } else { $null }
-Write-Host "PASS kb_id=$kbId agent_id=$agentId workflow_id=$workflowId model=$chatModel"
+Write-Host "PASS kb_id=$kbId agent_id=$agentId workflow_id=$workflowId dataset_id=$datasetId model=$chatModel"
 
 Write-Host "`n[7/14] Chat completion"
 $chatPayload = @{ temperature = 0.7; messages = @(@{ role = "user"; content = "你好" }) }
@@ -157,9 +160,10 @@ Assert-True ($workflow.status -eq "success") "workflow run failed"
 Write-Host "PASS workflow_id=$workflowId status=$($workflow.status) node_runs=$($workflow.node_runs.Count) source=$($workflow.source)"
 
 Write-Host "`n[14/14] Eval run"
-$evalBody = ConvertTo-AgentFlowJson @{ dataset_id = 1; model = $(if ($chatModel) { $chatModel } else { "local-rag-evaluator" }) }
+$evalModel = if ($chatModel) { $chatModel } else { "local-rag-evaluator" }
+$evalBody = ConvertTo-AgentFlowJson @{ dataset_id = $datasetId; model = $evalModel }
 $eval = Invoke-AgentFlowJson -Method POST -Path "/api/evals/runs" -Body $evalBody
 Assert-True ($eval.status -eq "completed") "eval run did not complete"
-Write-Host "PASS id=$($eval.id) status=$($eval.status) score=$($eval.score) cases=$($eval.cases.Count) source=$($eval.source)"
+Write-Host "PASS dataset_id=$datasetId id=$($eval.id) status=$($eval.status) score=$($eval.score) cases=$($eval.cases.Count) source=$($eval.source)"
 
 Write-Host "`nAgentFlow-AI runtime verification completed."
