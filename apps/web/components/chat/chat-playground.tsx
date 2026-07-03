@@ -59,8 +59,9 @@ export function ChatPlayground() {
         temperature: 0.7,
         messages: [{ role: "user", content: question }],
       });
+      const activeModel = data.model ?? selectedModel || "local-fallback";
       const meta = [
-        `Model：${data.model ?? selectedModel || "local-fallback"}`,
+        `Model：${activeModel}`,
         `Provider：${data.provider ?? data.provider_id ?? "-"}`,
         `Mode：${data.mode ?? "-"}`,
         `Model Source：${data.model_source ?? "-"}`,
