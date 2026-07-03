@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,6 +30,9 @@ export function ToolAuditConsole() {
   const [records, setRecords] = useState<AuditRecord[]>([]);
   const [summary, setSummary] = useState<AuditSummary | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [toolFilter, setToolFilter] = useState("all");
+  const [keyword, setKeyword] = useState("");
   const [error, setError] = useState("");
 
   async function load() {
@@ -41,7 +44,7 @@ export function ToolAuditConsole() {
       ]);
       setRecords(list);
       setSummary(stats);
-      setSelectedId(list[0]?.id ?? null);
+      setSelectedId((current) => (current && list.some((item) => item.id === current) ? current : list[0]?.id ?? null));
     } catch (err) {
       setError(err instanceof Error ? err.message : "审计数据加载失败");
     }
@@ -51,14 +54,32 @@ export function ToolAuditConsole() {
     void load();
   }, []);
 
-  const selected = records.find((item) => item.id === selectedId) ?? records[0];
+  const toolOptions = useMemo(() => Array.from(new Set(records.map((item) => item.tool_name))).sort(), [records]);
+  const filteredRecords = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    return records.filter((item) => {
+      if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (toolFilter !== "all" && item.tool_name !== toolFilter) return false;
+      if (!normalizedKeyword) return true;
+      return [
+        item.trace_id,
+        item.tool_name,
+        item.status,
+        item.error_message ?? "",
+        JSON.stringify(item.input),
+        JSON.stringify(item.output),
+      ].join(" ").toLowerCase().includes(normalizedKeyword);
+    });
+  }, [records, statusFilter, toolFilter, keyword]);
+
+  const selected = filteredRecords.find((item) => item.id === selectedId) ?? filteredRecords[0] ?? records.find((item) => item.id === selectedId) ?? records[0];
 
   return (
     <div className="space-y-4">
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">V3 工具调用审计</h2>
-          <p className="mt-1 text-sm text-slate-400">追踪 Agent 每次工具调用的输入、输出、状态、耗时和 trace_id。</p>
+          <h2 className="text-xl font-semibold">工具调用审计</h2>
+          <p className="mt-1 text-sm text-slate-400">追踪 Agent 每次工具调用的输入、输出、状态、耗时和 trace_id，支持筛选定位异常。</p>
         </div>
         <Button onClick={load}>刷新审计</Button>
       </Card>
@@ -84,24 +105,54 @@ export function ToolAuditConsole() {
         </Card>
       </div>
 
+      <Card>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">状态</span>
+            <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">全部状态</option>
+              <option value="success">success</option>
+              <option value="failed">failed</option>
+            </select>
+          </label>
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">工具</span>
+            <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={toolFilter} onChange={(event) => setToolFilter(event.target.value)}>
+              <option value="all">全部工具</option>
+              {toolOptions.map((tool) => (
+                <option key={tool} value={tool}>{tool}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm text-slate-300">
+            <span className="mb-1 block text-xs text-slate-500">关键字 / trace_id</span>
+            <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索 trace、工具、输入、输出" />
+          </label>
+        </div>
+      </Card>
+
       <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
         <Card>
-          <h3 className="font-semibold">调用记录</h3>
+          <h3 className="font-semibold">调用记录 · {filteredRecords.length}/{records.length}</h3>
           <div className="mt-4 space-y-2">
-            {records.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setSelectedId(item.id)}
-                className={`w-full rounded-xl border p-4 text-left text-sm transition ${selected?.id === item.id ? "border-blue-300 bg-blue-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">#{item.id} · {item.tool_name}</span>
-                  <span className={item.status === "success" ? "text-emerald-300" : "text-red-300"}>{item.status}</span>
-                </div>
-                <div className="mt-2 text-xs text-slate-400">trace: {item.trace_id}</div>
-                <div className="mt-1 text-xs text-slate-500">{item.latency_ms}ms · {item.created_at}</div>
-              </button>
-            ))}
+            {filteredRecords.length === 0 ? (
+              <div className="rounded-xl bg-white/5 p-4 text-sm text-slate-400">当前筛选条件下暂无记录。</div>
+            ) : (
+              filteredRecords.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedId(item.id)}
+                  className={`w-full rounded-xl border p-4 text-left text-sm transition ${selected?.id === item.id ? "border-blue-300 bg-blue-500/10" : "border-white/10 bg-white/5 hover:border-white/20"}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">#{item.id} · {item.tool_name}</span>
+                    <span className={item.status === "success" ? "text-emerald-300" : "text-red-300"}>{item.status}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-400">trace: {item.trace_id}</div>
+                  <div className="mt-1 text-xs text-slate-500">{item.latency_ms}ms · {item.created_at}</div>
+                </button>
+              ))
+            )}
           </div>
         </Card>
 
