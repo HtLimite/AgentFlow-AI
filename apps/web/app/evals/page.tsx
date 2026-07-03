@@ -1,5 +1,5 @@
-import { EvalConsole } from "@/components/evals/eval-console";
+import { EvalComparisonConsole } from "@/components/evals/eval-comparison-console";
 
 export default function EvalsPage() {
-  return <EvalConsole />;
+  return <EvalComparisonConsole />;
 }
