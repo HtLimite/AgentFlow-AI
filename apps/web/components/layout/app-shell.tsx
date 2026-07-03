@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 p-5 lg:p-8">
         <header className="mb-6 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.05] px-5 py-4 backdrop-blur">
           <div>
-            <div className="text-sm text-slate-400">V1 · RAG + 多模型聊天闭环</div>
+            <div className="text-sm text-slate-400">真实运行时 · RAG / Agent / Workflow / Eval</div>
             <h1 className="text-lg font-semibold">AI 工作流控制台</h1>
           </div>
           <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">Local Ready</div>
