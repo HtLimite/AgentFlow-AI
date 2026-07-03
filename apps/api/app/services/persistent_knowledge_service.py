@@ -81,30 +81,14 @@ class PersistentKnowledgeService:
         parsed_content = clean_extracted_text(str(parsed["content"]))
         chunks = chunk_service.split_text(parsed_content, chunk_size=800, overlap=150)
         file_type = str(parsed.get("file_type") or (filename.rsplit(".", 1)[-1] if "." in filename else "text"))
-        document = KnowledgeDocument(
-            kb_id=kb_id,
-            filename=filename,
-            file_type=file_type,
-            file_size=len(raw_content),
-            parse_status="ready",
-            chunk_count=len(chunks),
-        )
+        document = KnowledgeDocument(kb_id=kb_id, filename=filename, file_type=file_type, file_size=len(raw_content), parse_status="ready", chunk_count=len(chunks))
         session.add(document)
         await session.flush()
 
         for chunk in chunks:
             content = clean_extracted_text(str(chunk["content"]))
             embedding = await embedding_service.embed(content)
-            await self._insert_chunk(
-                session,
-                kb_id=kb_id,
-                document_id=int(document.id),
-                content=content,
-                chunk_index=int(chunk["chunk_index"]),
-                token_count=int(chunk["token_count"]),
-                embedding=embedding,
-                metadata={"document": filename, "source": "database"},
-            )
+            await self._insert_chunk(session, kb_id=kb_id, document_id=int(document.id), content=content, chunk_index=int(chunk["chunk_index"]), token_count=int(chunk["token_count"]), embedding=embedding, metadata={"document": filename, "source": "database"})
 
         await session.commit()
         await session.refresh(document)
@@ -129,30 +113,12 @@ class PersistentKnowledgeService:
     async def answer(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = await self.search(session, kb_id, question, top_k)
         if not chunks:
-            return {
-                "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请确认已上传对应文档，或换一个知识库后再问。",
-                "citations": [],
-                "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "pgvector_sql_hybrid", "min_relevance_score": MIN_RELEVANCE_SCORE},
-            }
+            return {"answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请先上传真实文档，或换一个知识库后再问。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "pgvector_sql_hybrid", "min_relevance_score": MIN_RELEVANCE_SCORE}}
         evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 220)}" for chunk in chunks)
         strategy = str(chunks[0].get("strategy") or "pgvector_sql_hybrid")
-        return {
-            "answer": f"根据知识库命中片段回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}",
-            "citations": chunks,
-            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": strategy, "min_relevance_score": MIN_RELEVANCE_SCORE},
-        }
+        return {"answer": f"根据知识库命中片段回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}", "citations": chunks, "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": strategy, "min_relevance_score": MIN_RELEVANCE_SCORE}}
 
-    async def _insert_chunk(
-        self,
-        session: AsyncSession,
-        kb_id: int,
-        document_id: int,
-        content: str,
-        chunk_index: int,
-        token_count: int,
-        embedding: list[float],
-        metadata: dict[str, Any],
-    ) -> None:
+    async def _insert_chunk(self, session: AsyncSession, kb_id: int, document_id: int, content: str, chunk_index: int, token_count: int, embedding: list[float], metadata: dict[str, Any]) -> None:
         await session.execute(
             text(
                 """
@@ -160,39 +126,18 @@ class PersistentKnowledgeService:
                 VALUES (:kb_id, :document_id, :content, :chunk_index, :token_count, CAST(:embedding AS vector), CAST(:metadata AS jsonb))
                 """
             ),
-            {
-                "kb_id": kb_id,
-                "document_id": document_id,
-                "content": content,
-                "chunk_index": chunk_index,
-                "token_count": token_count,
-                "embedding": _vector_literal(embedding),
-                "metadata": json.dumps(metadata, ensure_ascii=False),
-            },
+            {"kb_id": kb_id, "document_id": document_id, "content": content, "chunk_index": chunk_index, "token_count": token_count, "embedding": _vector_literal(embedding), "metadata": json.dumps(metadata, ensure_ascii=False)},
         )
 
-    async def _search_pgvector(
-        self,
-        session: AsyncSession,
-        kb_id: int,
-        question: str,
-        query_vector: list[float],
-        top_k: int,
-    ) -> list[dict[str, object]]:
+    async def _search_pgvector(self, session: AsyncSession, kb_id: int, question: str, query_vector: list[float], top_k: int) -> list[dict[str, object]]:
         result = await session.execute(
             text(
                 """
-                SELECT
-                  kc.chunk_index,
-                  kc.content,
-                  kc.token_count,
-                  kd.filename AS document,
-                  1 - (kc.embedding <=> CAST(:query_embedding AS vector)) AS vector_score
+                SELECT kc.chunk_index, kc.content, kc.token_count, kd.filename AS document,
+                       1 - (kc.embedding <=> CAST(:query_embedding AS vector)) AS vector_score
                 FROM knowledge_chunk kc
                 JOIN knowledge_document kd ON kd.id = kc.document_id
-                WHERE kc.kb_id = :kb_id
-                  AND kd.parse_status = 'ready'
-                  AND kc.embedding IS NOT NULL
+                WHERE kc.kb_id = :kb_id AND kd.parse_status = 'ready' AND kc.embedding IS NOT NULL
                 ORDER BY kc.embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :limit
                 """
@@ -207,18 +152,7 @@ class PersistentKnowledgeService:
             score = round(lexical_score * 0.35 + vector_score * 0.65, 4)
             if score < MIN_RELEVANCE_SCORE:
                 continue
-            rows.append(
-                {
-                    "chunk_index": int(row["chunk_index"]),
-                    "content": make_snippet(content, 500),
-                    "token_count": int(row["token_count"] or 0),
-                    "document": row["document"],
-                    "score": score,
-                    "lexical_score": round(lexical_score, 4),
-                    "vector_score": round(vector_score, 4),
-                    "strategy": "pgvector_sql_hybrid",
-                }
-            )
+            rows.append({"chunk_index": int(row["chunk_index"]), "content": make_snippet(content, 500), "token_count": int(row["token_count"] or 0), "document": row["document"], "score": score, "lexical_score": round(lexical_score, 4), "vector_score": round(vector_score, 4), "strategy": "pgvector_sql_hybrid"})
         return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[:top_k]
 
     async def _search_metadata_hybrid(self, session: AsyncSession, kb_id: int, question: str, query_vector: list[float], top_k: int) -> list[dict[str, object]]:
@@ -239,62 +173,21 @@ class PersistentKnowledgeService:
             score = round(lexical_score * 0.75 + vector_score * 0.25, 4)
             if score < MIN_RELEVANCE_SCORE:
                 continue
-            rows.append(
-                {
-                    "chunk_index": chunk.chunk_index,
-                    "content": make_snippet(content, 500),
-                    "token_count": chunk.token_count,
-                    "document": filename,
-                    "score": score,
-                    "lexical_score": round(lexical_score, 4),
-                    "vector_score": round(vector_score, 4),
-                    "strategy": "metadata_vector_hybrid",
-                }
-            )
+            rows.append({"chunk_index": chunk.chunk_index, "content": make_snippet(content, 500), "token_count": chunk.token_count, "document": filename, "score": score, "lexical_score": round(lexical_score, 4), "vector_score": round(vector_score, 4), "strategy": "metadata_vector_hybrid"})
         return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[:top_k]
 
     async def _ensure_default_base(self, session: AsyncSession) -> None:
         existing = await session.scalar(select(KnowledgeBase.id).limit(1))
         if existing:
             return
-        default = KnowledgeBase(id=1, name="企业制度知识库", description="默认演示知识库", visibility="private")
-        session.add(default)
-        await session.flush()
-        document = KnowledgeDocument(kb_id=1, filename="demo-policy.md", file_type="md", parse_status="ready", chunk_count=1)
-        session.add(document)
-        await session.flush()
-        content = "报销流程：员工提交发票和报销单，直属负责人审批，财务复核后付款。"
-        embedding = await embedding_service.embed(content)
-        await self._insert_chunk(
-            session,
-            kb_id=1,
-            document_id=int(document.id),
-            content=content,
-            chunk_index=0,
-            token_count=32,
-            embedding=embedding,
-            metadata={"document": "demo-policy.md", "source": "seed"},
-        )
+        session.add(KnowledgeBase(id=1, name="默认知识库", description="空知识库；请上传真实文档后再查询。", visibility="private"))
         await session.commit()
 
     def _serialize_base(self, item: KnowledgeBase, document_count: int, chunk_count: int) -> dict[str, object]:
-        return {
-            "id": item.id,
-            "name": item.name,
-            "description": item.description,
-            "document_count": int(document_count or 0),
-            "chunk_count": int(chunk_count or 0),
-            "status": "ready",
-        }
+        return {"id": item.id, "name": item.name, "description": item.description, "document_count": int(document_count or 0), "chunk_count": int(chunk_count or 0), "status": "ready"}
 
     def _serialize_document(self, item: KnowledgeDocument) -> dict[str, object]:
-        return {
-            "id": item.id,
-            "kb_id": item.kb_id,
-            "filename": item.filename,
-            "parse_status": item.parse_status,
-            "chunk_count": item.chunk_count,
-        }
+        return {"id": item.id, "kb_id": item.kb_id, "filename": item.filename, "parse_status": item.parse_status, "chunk_count": item.chunk_count}
 
 
 persistent_knowledge_service = PersistentKnowledgeService()
