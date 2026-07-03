@@ -198,3 +198,19 @@ class LLMCallLog(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     metadata_json: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ToolAuditLogModel(Base):
+    __tablename__ = "tool_audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    trace_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    agent_id: Mapped[int | None] = mapped_column(Integer)
+    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    input_json: Mapped[dict | None] = mapped_column(JSONB)
+    output_json: Mapped[dict | None] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(50), default="success")
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    tenant_id: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

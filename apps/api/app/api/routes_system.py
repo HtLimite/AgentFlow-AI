@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rbac import UserContext, get_current_context
 from app.services.eval_service import eval_service
 from app.services.knowledge_service import knowledge_service
 from app.services.observability_service import observability_service
@@ -26,6 +27,9 @@ PERSISTENCE_TABLES = [
     "eval_case",
     "eval_run",
     "llm_call_log",
+    "tool_audit_log",
+    "tenant",
+    "audit_log",
 ]
 
 PERSISTENCE_BOOTSTRAP_SQL = [
@@ -110,6 +114,7 @@ PERSISTENCE_BOOTSTRAP_SQL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_knowledge_chunk_kb_id ON knowledge_chunk(kb_id)",
     "CREATE INDEX IF NOT EXISTS idx_knowledge_chunk_document_id ON knowledge_chunk(document_id)",
+    "CREATE INDEX IF NOT EXISTS idx_knowledge_chunk_embedding ON knowledge_chunk USING hnsw (embedding vector_cosine_ops)",
     """
     CREATE TABLE IF NOT EXISTS prompt_template (
       id BIGSERIAL PRIMARY KEY,
@@ -216,6 +221,21 @@ PERSISTENCE_BOOTSTRAP_SQL = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS tool_audit_log (
+      id BIGSERIAL PRIMARY KEY,
+      trace_id VARCHAR(120) NOT NULL,
+      agent_id BIGINT,
+      tool_name VARCHAR(100) NOT NULL,
+      input_json JSONB,
+      output_json JSONB,
+      status VARCHAR(50) DEFAULT 'success',
+      latency_ms INT DEFAULT 0,
+      error_message TEXT,
+      tenant_id BIGINT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS tenant (
       id BIGSERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
@@ -248,6 +268,9 @@ PERSISTENCE_BOOTSTRAP_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_workflow_run_workflow_id ON workflow_run(workflow_id)",
     "CREATE INDEX IF NOT EXISTS idx_eval_run_dataset_id ON eval_run(dataset_id)",
     "CREATE INDEX IF NOT EXISTS idx_llm_call_log_created_at ON llm_call_log(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_tool_audit_log_trace_id ON tool_audit_log(trace_id)",
+    "CREATE INDEX IF NOT EXISTS idx_tool_audit_log_created_at ON tool_audit_log(created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_tool_audit_log_tool_name ON tool_audit_log(tool_name)",
 ]
 
 
@@ -270,6 +293,8 @@ async def full_health_check() -> dict[str, object]:
             "tool_audit": audit_summary["total_calls"] >= 1,
             "workflow": len(DEFAULT_WORKFLOW.nodes) >= 4,
             "workflow_canvas": True,
+            "react_flow_canvas": True,
+            "rbac": True,
             "prompt": True,
             "eval": len(datasets) > 0,
             "eval_compare": True,
@@ -308,6 +333,11 @@ async def persistence_health(session: AsyncSession = Depends(get_db)) -> dict[st
     }
 
 
+@router.get("/rbac/context")
+async def rbac_context(context: UserContext = Depends(get_current_context)) -> dict[str, object]:
+    return {"status": "ok", "context": context.to_dict()}
+
+
 @router.get("/verification")
 async def verification_plan() -> dict[str, object]:
     return {
@@ -315,6 +345,7 @@ async def verification_plan() -> dict[str, object]:
             "GET /health",
             "GET /api/system/health/full",
             "GET /api/system/persistence/health",
+            "GET /api/system/rbac/context",
             "GET /api/model-providers",
             "POST /api/chat/completions",
             "GET /api/knowledge-bases",

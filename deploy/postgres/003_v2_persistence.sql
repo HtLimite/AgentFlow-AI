@@ -77,6 +77,20 @@ CREATE TABLE IF NOT EXISTS eval_run (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS tool_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  trace_id VARCHAR(120) NOT NULL,
+  agent_id BIGINT,
+  tool_name VARCHAR(100) NOT NULL,
+  input_json JSONB,
+  output_json JSONB,
+  status VARCHAR(50) DEFAULT 'success',
+  latency_ms INT DEFAULT 0,
+  error_message TEXT,
+  tenant_id BIGINT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
 ALTER TABLE llm_call_log ADD COLUMN IF NOT EXISTS total_tokens INT DEFAULT 0;
 ALTER TABLE llm_call_log ADD COLUMN IF NOT EXISTS latency_ms INT;
 ALTER TABLE llm_call_log ADD COLUMN IF NOT EXISTS status VARCHAR(50);
@@ -87,3 +101,6 @@ CREATE INDEX IF NOT EXISTS idx_prompt_template_scenario ON prompt_template(scena
 CREATE INDEX IF NOT EXISTS idx_workflow_run_workflow_id ON workflow_run(workflow_id);
 CREATE INDEX IF NOT EXISTS idx_eval_run_dataset_id ON eval_run(dataset_id);
 CREATE INDEX IF NOT EXISTS idx_llm_call_log_created_at ON llm_call_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_tool_audit_log_trace_id ON tool_audit_log(trace_id);
+CREATE INDEX IF NOT EXISTS idx_tool_audit_log_created_at ON tool_audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_tool_audit_log_tool_name ON tool_audit_log(tool_name);
