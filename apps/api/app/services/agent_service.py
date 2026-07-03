@@ -49,7 +49,7 @@ class AgentService:
             if not match:
                 raise ValueError("Please provide a full http/https URL")
             return {"method": "GET", "url": match.group(0)}
-        return {"kb_id": 1, "query": question, "top_k": 3}
+        return {"query": question, "top_k": 3}
 
     def _extract_expression(self, question: str) -> str | None:
         if not any(symbol in question for symbol in ["+", "-", "*", "/"]):
