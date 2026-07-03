@@ -1,14 +1,18 @@
+from uuid import uuid4
+
 from app.services.tool_service import tool_registry
 
 
 class AgentService:
     async def chat(self, agent_id: int, question: str) -> dict[str, object]:
+        trace_id = f"agent-{agent_id}-{uuid4().hex[:10]}"
         tool_name = self._select_tool(question)
         args = self._build_tool_args(tool_name, question)
-        tool_call = await tool_registry.run(tool_name, args)
+        tool_call = await tool_registry.run(tool_name, args, agent_id=agent_id, trace_id=trace_id)
         answer = self._build_answer(question, tool_call.output, tool_call.status)
         return {
             "agent_id": agent_id,
+            "trace_id": trace_id,
             "answer": answer,
             "tool_calls": [tool_call.__dict__],
         }
