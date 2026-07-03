@@ -14,7 +14,9 @@ async def get_dashboard_summary(session: AsyncSession = Depends(get_db)) -> dict
         return await persistent_observability_service.summary(session)
     except Exception as exc:
         if is_observability_database_error(exc):
-            return observability_service.summary()
+            summary = observability_service.summary()
+            summary["source"] = "memory_fallback"
+            return summary
         raise
 
 
@@ -39,8 +41,12 @@ async def get_llm_logs(session: AsyncSession = Depends(get_db)) -> list[dict[str
 
 
 @router.get("/recent-errors")
-async def get_recent_errors() -> list[dict[str, str]]:
-    return [
-        {"scenario": "embedding", "message": "provider timeout", "status": "retrying"},
-        {"scenario": "chat", "message": "rate limit", "status": "degraded"},
-    ]
+async def get_recent_errors(session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+    try:
+        logs = await persistent_observability_service.list_logs(session, limit=50)
+    except Exception as exc:
+        if is_observability_database_error(exc):
+            logs = observability_service.list_logs()
+        else:
+            raise
+    return [item for item in logs if item.get("status") != "success"][:10]
