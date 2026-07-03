@@ -1,27 +1,67 @@
 "use client";
 
-import { useState } from "react";
-import { apiJson } from "@/lib/api-client";
+import { useEffect, useState } from "react";
+import { apiGet, apiJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
+type AgentItem = {
+  id: number;
+  name: string;
+  description?: string;
+  tools?: string[];
+  source?: string;
+};
+
 export function AgentConsole() {
-  const [question, setQuestion] = useState("请调用知识库工具回答报销流程是什么？");
-  const [result, setResult] = useState("等待运行 Agent");
+  const [agents, setAgents] = useState<AgentItem[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
+  const [question, setQuestion] = useState("");
+  const [result, setResult] = useState("请选择 Agent 并输入问题");
+
+  async function loadAgents() {
+    const data = await apiGet<AgentItem[]>("/api/agents");
+    setAgents(data);
+    setSelectedAgentId((current) => (current && data.some((item) => item.id === current) ? current : data[0]?.id ?? null));
+  }
+
+  useEffect(() => {
+    loadAgents().catch((error) => setResult(error.message));
+  }, []);
 
   async function run() {
-    const data = await apiJson<{ answer: string; tool_calls: unknown[] }>("/api/agents/1/chat", { question });
+    if (!selectedAgentId) {
+      setResult("请先选择 Agent");
+      return;
+    }
+    if (!question.trim()) {
+      setResult("请输入问题、SELECT 语句、计算表达式或完整 http/https URL");
+      return;
+    }
+    const data = await apiJson<{ answer: string; tool_calls: unknown[] }>(`/api/agents/${selectedAgentId}/chat`, { question });
     setResult(`${data.answer}\n\n工具调用：\n${JSON.stringify(data.tool_calls, null, 2)}`);
   }
 
+  const selectedAgent = agents.find((item) => item.id === selectedAgentId);
+
   return (
     <Card>
-      <h2 className="text-xl font-semibold">Agent 工具调用演示</h2>
-      <p className="mt-2 text-sm text-slate-400">调用后端 Agent Chat，展示工具输入、工具输出和最终回答。</p>
-      <div className="mt-5 flex gap-3">
-        <input className="flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} />
-        <Button onClick={run}>运行 Agent</Button>
+      <h2 className="text-xl font-semibold">Agent 工具调用</h2>
+      <p className="mt-2 text-sm text-slate-400">从后端 Agent 列表读取当前 Agent，不固定 /api/agents/1。工具选择由后端根据输入动态判断。</p>
+      <div className="mt-5 grid gap-3 md:grid-cols-[260px_1fr_auto]">
+        <select className="rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={selectedAgentId ?? ""} onChange={(event) => setSelectedAgentId(Number(event.target.value))}>
+          {agents.map((agent) => (
+            <option key={agent.id} value={agent.id}>{agent.name}</option>
+          ))}
+        </select>
+        <input className="rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入问题、SELECT 查询、计算表达式或完整 URL" />
+        <Button onClick={run} disabled={!selectedAgentId || !question.trim()}>运行 Agent</Button>
       </div>
+      {selectedAgent && (
+        <div className="mt-4 rounded-xl bg-white/10 p-3 text-xs text-slate-400">
+          {selectedAgent.description ?? "无描述"} · 工具：{selectedAgent.tools?.join(", ") || "-"} · 来源：{selectedAgent.source ?? "runtime"}
+        </div>
+      )}
       <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">{result}</pre>
     </Card>
   );
