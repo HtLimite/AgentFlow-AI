@@ -2,7 +2,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,39 +36,34 @@ async def chat_completions(payload: ChatCompletionRequest, session: AsyncSession
     if provider is not None:
         try:
             result = await provider_adapter.chat(provider, payload.messages, payload.model or "default", payload.temperature)
-        except Exception:
-            result = await llm_service.complete(payload.messages, payload.model, payload.temperature)
+        except Exception as exc:
+            await _record_call(session, payload, provider.name, 0, 0, 0, "failed", str(exc))
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Model provider request failed") from exc
+        mode = "provider"
+        warning = None
     else:
         result = await llm_service.complete(payload.messages, payload.model, payload.temperature)
+        mode = "local_fallback"
+        warning = "No real model provider is configured. This response is local fallback output."
 
+    await _record_call(session, payload, provider.name if provider else None, result.usage.get("prompt_tokens", 0), result.usage.get("completion_tokens", 0), result.latency_ms)
+    return {"answer": result.content, "usage": result.usage, "latency_ms": result.latency_ms, "provider_id": provider.id if provider else None, "mode": mode, "warning": warning}
+
+
+async def _record_call(session: AsyncSession, payload: ChatCompletionRequest, provider_name: str | None, prompt_tokens: int, completion_tokens: int, latency_ms: int, call_status: str = "success", error_message: str | None = None) -> None:
     try:
-        await persistent_observability_service.record(
-            session,
-            scenario="chat",
-            model=payload.model or "demo-model",
-            prompt_tokens=result.usage.get("prompt_tokens", 0),
-            completion_tokens=result.usage.get("completion_tokens", 0),
-            latency_ms=result.latency_ms,
-            provider=provider.name if provider else None,
-        )
+        await persistent_observability_service.record(session, scenario="chat", model=payload.model or "local-fallback", prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, latency_ms=latency_ms, provider=provider_name, status=call_status, error_message=error_message)
     except Exception as exc:
         if is_observability_database_error(exc):
-            observability_service.record(
-                scenario="chat",
-                model=payload.model or "demo-model",
-                prompt_tokens=result.usage.get("prompt_tokens", 0),
-                completion_tokens=result.usage.get("completion_tokens", 0),
-                latency_ms=result.latency_ms,
-            )
+            observability_service.record(scenario="chat", model=payload.model or "local-fallback", prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, latency_ms=latency_ms, status=call_status)
         else:
             raise
-    return {"answer": result.content, "usage": result.usage, "latency_ms": result.latency_ms, "provider_id": provider.id if provider else None}
 
 
 async def _stream_answer(payload: ChatCompletionRequest) -> AsyncIterator[bytes]:
-    chunks = ["正在检索上下文...", "正在调用模型...", "这是 AgentFlow-AI 的流式回答示例。"]
-    for chunk in chunks:
-        await asyncio.sleep(0.1)
+    result = await llm_service.complete(payload.messages, payload.model, payload.temperature)
+    for chunk in result.content.splitlines():
+        await asyncio.sleep(0.02)
         yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n".encode("utf-8")
     yield b"data: [DONE]\n\n"
 

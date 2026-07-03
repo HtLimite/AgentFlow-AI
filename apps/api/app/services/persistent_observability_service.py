@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.domain import LLMCallLog
+from app.models.domain import KnowledgeBase, LLMCallLog, WorkflowRunModel
 
 
 class PersistentObservabilityService:
@@ -56,15 +56,17 @@ class PersistentObservabilityService:
         ).one()
         total_calls = int(row[0] or 0)
         failed = int(await session.scalar(select(func.count(LLMCallLog.id)).where(LLMCallLog.status != "success")) or 0)
+        knowledge_bases = int(await session.scalar(select(func.count(KnowledgeBase.id))) or 0)
+        workflow_runs = int(await session.scalar(select(func.count(WorkflowRunModel.id))) or 0)
         return {
             "calls_today": total_calls,
             "tokens_today": int(row[1] or 0),
             "cost_today": float(row[2] or 0),
             "avg_latency_ms": round(float(row[3] or 0), 2),
             "failure_rate": round(failed / total_calls, 4) if total_calls else 0,
-            "knowledge_bases": 1,
-            "agents": 3,
-            "workflow_runs": 1,
+            "knowledge_bases": knowledge_bases,
+            "agents": 1,
+            "workflow_runs": workflow_runs,
             "source": "database",
         }
 
