@@ -62,4 +62,3 @@ def test_project_diagnosis_ignores_placeholder_descriptions() -> None:
     assert payload["severity"] == "warning"
     assert payload["source"] == "manual_input"
     assert "真实诊断输入" in payload["summary"]
-}
