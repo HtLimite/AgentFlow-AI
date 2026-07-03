@@ -22,9 +22,42 @@ interface KnowledgeDocumentItem {
   chunk_count: number;
 }
 
+interface CitationItem {
+  document: string;
+  content: string;
+  score: number;
+  lexical_score?: number;
+  vector_score?: number;
+  rerank_score?: number;
+  strategy?: string;
+}
+
+interface EvidenceItem extends CitationItem {
+  index: number;
+}
+
 interface KnowledgeAnswer {
   answer: string;
-  citations: Array<{ document: string; content: string; score: number; lexical_score?: number; vector_score?: number }>;
+  summary?: string;
+  evidence?: EvidenceItem[];
+  citations: CitationItem[];
+  debug?: {
+    kb_id?: number;
+    top_k?: number;
+    strategy?: string;
+    rerank?: boolean;
+    min_relevance_score?: number;
+  };
+}
+
+function formatScore(value?: number) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "-";
+  return value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function compactText(value: string, maxLength = 420) {
+  const text = value.trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength).trim()}…` : text;
 }
 
 export function KnowledgeConsole() {
@@ -32,8 +65,10 @@ export function KnowledgeConsole() {
   const [documents, setDocuments] = useState<KnowledgeDocumentItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("请选择知识库并上传真实文档后再查询");
+  const [statusMessage, setStatusMessage] = useState("请选择知识库并上传真实文档后再查询");
+  const [result, setResult] = useState<KnowledgeAnswer | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [querying, setQuerying] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [newBaseName, setNewBaseName] = useState("");
 
@@ -60,51 +95,60 @@ export function KnowledgeConsole() {
   }
 
   useEffect(() => {
-    reload().catch((error) => setAnswer(error.message));
+    reload().catch((error) => setStatusMessage(error.message));
   }, []);
 
   useEffect(() => {
-    loadDocuments(selectedId).catch((error) => setAnswer(error.message));
+    loadDocuments(selectedId).catch((error) => setStatusMessage(error.message));
   }, [selectedId]);
 
   async function createBase() {
     const name = newBaseName.trim();
     if (!name) {
-      setAnswer("请先填写知识库名称");
+      setStatusMessage("请先填写知识库名称");
       return;
     }
     const created = await apiJson<KnowledgeBaseItem>("/api/knowledge-bases", { name });
     setNewBaseName("");
     await reload(created.id);
-    setAnswer(`已创建知识库：${created.name}`);
+    setResult(null);
+    setStatusMessage(`已创建知识库：${created.name}`);
   }
 
   async function query() {
     if (!selectedId) {
-      setAnswer("请先创建或选择知识库");
+      setStatusMessage("请先创建或选择知识库");
       return;
     }
     if (!question.trim()) {
-      setAnswer("请输入要查询的问题");
+      setStatusMessage("请输入要查询的问题");
       return;
     }
-    const data = await apiJson<KnowledgeAnswer>(`/api/knowledge-bases/${selectedId}/query`, { question, top_k: 5 });
-    const citations = data.citations.length
-      ? data.citations.map((item) => `- ${item.document} · score=${item.score} · lexical=${item.lexical_score ?? "-"}: ${item.content}`).join("\n")
-      : "无引用来源";
-    setAnswer(`${data.answer}\n\n引用来源：\n${citations}`);
+    setQuerying(true);
+    setStatusMessage("正在检索知识库...");
+    try {
+      const data = await apiJson<KnowledgeAnswer>(`/api/knowledge-bases/${selectedId}/query`, { question, top_k: 5 });
+      setResult(data);
+      setStatusMessage(data.citations.length ? "已基于知识库生成回答" : "未找到直接相关的知识库片段");
+    } catch (error) {
+      setResult(null);
+      setStatusMessage(error instanceof Error ? error.message : "知识库查询失败");
+    } finally {
+      setQuerying(false);
+    }
   }
 
   async function upload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!selectedId) {
-      setAnswer("请先创建或选择知识库");
+      setStatusMessage("请先创建或选择知识库");
       event.target.value = "";
       return;
     }
     setUploading(true);
-    setAnswer(`正在解析文档：${file.name}`);
+    setResult(null);
+    setStatusMessage(`正在解析文档：${file.name}`);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -114,9 +158,9 @@ export function KnowledgeConsole() {
         throw new Error(errorBody?.detail || "上传失败，请检查文档格式");
       }
       await reload(selectedId);
-      setAnswer(`文档已解析并切片：${file.name}`);
+      setStatusMessage(`文档已解析并切片：${file.name}`);
     } catch (error) {
-      setAnswer(error instanceof Error ? error.message : "上传失败，请检查文档格式");
+      setStatusMessage(error instanceof Error ? error.message : "上传失败，请检查文档格式");
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -133,13 +177,16 @@ export function KnowledgeConsole() {
         throw new Error(errorBody?.detail || "删除失败");
       }
       await reload(selectedId);
-      setAnswer(`已删除文档 #${documentId}。该文档已从知识库列表和后续检索中移除。`);
+      setResult(null);
+      setStatusMessage(`已删除文档 #${documentId}。该文档已从知识库列表和后续检索中移除。`);
     } catch (error) {
-      setAnswer(error instanceof Error ? error.message : "删除失败");
+      setStatusMessage(error instanceof Error ? error.message : "删除失败");
     } finally {
       setRemovingId(null);
     }
   }
+
+  const evidence = result?.evidence?.length ? result.evidence : result?.citations.map((item, index) => ({ ...item, index: index + 1 })) ?? [];
 
   return (
     <div className="space-y-4">
@@ -211,11 +258,61 @@ export function KnowledgeConsole() {
       </Card>
 
       <Card>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 md:flex-row">
           <input className="flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入要从当前知识库检索的问题" />
-          <Button onClick={query} disabled={!selectedId || !question.trim()}>知识库问答</Button>
+          <Button onClick={query} disabled={!selectedId || !question.trim() || querying}>{querying ? "检索中" : "知识库问答"}</Button>
         </div>
-        <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">{answer}</pre>
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">{statusMessage}</div>
+
+        {result ? (
+          <div className="mt-4 space-y-4">
+            <section className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
+              <div className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-200">Answer</div>
+              <h3 className="mt-2 text-lg font-semibold text-white">直接答案</h3>
+              <p className="mt-3 text-base leading-8 text-slate-100">{result.summary || result.answer}</p>
+            </section>
+
+            <section className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-[0.2em] text-blue-200">Evidence</div>
+                  <h3 className="mt-2 text-lg font-semibold text-white">命中依据</h3>
+                </div>
+                <Badge>{evidence.length ? `${evidence.length} 条引用` : "无引用"}</Badge>
+              </div>
+              <div className="mt-4 space-y-3">
+                {evidence.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">没有可展示的引用片段。</div>
+                ) : (
+                  evidence.map((item) => (
+                    <article key={`${item.document}-${item.index}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div className="font-medium text-slate-100">来源 {item.index} · {item.document}</div>
+                        <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+                          <span className="rounded-full bg-white/10 px-2 py-1">score {formatScore(item.score)}</span>
+                          <span className="rounded-full bg-white/10 px-2 py-1">lexical {formatScore(item.lexical_score)}</span>
+                          <span className="rounded-full bg-white/10 px-2 py-1">vector {formatScore(item.vector_score)}</span>
+                          {typeof item.rerank_score === "number" ? <span className="rounded-full bg-white/10 px-2 py-1">rerank {formatScore(item.rerank_score)}</span> : null}
+                        </div>
+                      </div>
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">{compactText(item.content)}</p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-sm text-slate-300">
+              <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Debug</div>
+              <div className="mt-3 grid gap-2 md:grid-cols-4">
+                <div className="rounded-xl bg-white/5 p-3">KB：{result.debug?.kb_id ?? selectedId ?? "-"}</div>
+                <div className="rounded-xl bg-white/5 p-3">策略：{result.debug?.strategy ?? "-"}</div>
+                <div className="rounded-xl bg-white/5 p-3">TopK：{result.debug?.top_k ?? "-"}</div>
+                <div className="rounded-xl bg-white/5 p-3">Rerank：{result.debug?.rerank ? "开启" : "-"}</div>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </Card>
     </div>
   );
