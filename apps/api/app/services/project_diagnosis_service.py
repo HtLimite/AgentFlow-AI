@@ -1,6 +1,20 @@
 import re
 from typing import Any
 
+PLACEHOLDER_LINES = {
+    "后端启动报错",
+    "docker 容器状态",
+    "docker容器状态",
+    "前端 build 报错",
+    "前端build报错",
+    "nginx 502 报错",
+    "nginx502报错",
+    "数据库连接失败日志",
+    "启动日志",
+    "错误日志",
+    "关键文件片段",
+}
+
 
 class ProjectDiagnosisService:
     """Rule-based project diagnosis used as the first useful DevOps workflow."""
@@ -19,7 +33,7 @@ class ProjectDiagnosisService:
             "category": "database",
             "title": "数据库连接失败",
             "severity": "critical",
-            "regex": re.compile(r"connection refused|could not connect|database.*(failed|error)|psycopg|sqlalchemy|ECONNREFUSED|数据库.*失败", re.IGNORECASE),
+            "regex": re.compile(r"connection refused|could not connect|database.*(failed|error)|psycopg|sqlalchemy|ECONNREFUSED|数据库.*(连接失败|连接异常|无法连接)", re.IGNORECASE),
             "cause": "数据库容器未启动、连接地址写成了错误主机名，或本地 uv 模式和 Docker service name 混用。",
         },
         {
@@ -35,7 +49,7 @@ class ProjectDiagnosisService:
             "category": "network",
             "title": "Nginx 反向代理上游不可达",
             "severity": "critical",
-            "regex": re.compile(r"502 bad gateway|upstream.*failed|connect\(\).*failed|no live upstreams|nginx.*502", re.IGNORECASE),
+            "regex": re.compile(r"502 bad gateway|upstream.*failed|connect\(\).*failed|no live upstreams|nginx.*502.*(bad gateway|connect|upstream|failed|失败)", re.IGNORECASE),
             "cause": "Nginx 指向的端口没有服务监听，或容器端口没有映射到宿主机。",
         },
         {
@@ -68,12 +82,12 @@ class ProjectDiagnosisService:
         project_name = str(payload.get("project_name") or "未命名项目")
         runtime = str(payload.get("runtime") or "未说明")
         repository_url = payload.get("repository_url")
-        question = str(payload.get("question") or "")
-        logs = str(payload.get("logs") or "")
-        files = payload.get("files") if isinstance(payload.get("files"), list) else []
-        services = payload.get("services") if isinstance(payload.get("services"), list) else []
+        source = str(payload.get("source") or "manual_input")
+        logs = self._clean_input_text(str(payload.get("logs") or ""))
+        files = self._clean_files(payload.get("files") if isinstance(payload.get("files"), list) else [])
+        services = self._clean_services(payload.get("services") if isinstance(payload.get("services"), list) else [])
 
-        corpus = self._build_corpus(question, logs, files, services)
+        corpus = self._build_corpus(logs, files, services)
         signals = self._detect_signals(corpus, files, services)
         if not corpus.strip():
             signals.append(
@@ -82,8 +96,8 @@ class ProjectDiagnosisService:
                     "category": "input",
                     "title": "输入信息不足",
                     "severity": "warning",
-                    "detail": "当前没有提供日志、关键配置文件或服务状态，诊断只能给出通用检查路径。",
-                    "evidence": "logs/files/services 为空",
+                    "detail": "当前没有提供真实日志、关键配置文件或服务状态，诊断只能给出通用检查路径。",
+                    "evidence": "logs/files/services 为空或仅包含占位说明",
                 }
             )
 
@@ -91,12 +105,13 @@ class ProjectDiagnosisService:
         actions = self._build_actions(signals)
         score = self._readiness_score(signals)
         severity = self._overall_severity(signals)
-        summary = self._summary(project_name, runtime, score, severity, signals)
+        summary = self._summary(project_name, runtime, score, severity, signals, source)
 
         return {
             "project_name": project_name,
             "repository_url": repository_url,
             "runtime": runtime,
+            "source": source,
             "summary": summary,
             "readiness_score": score,
             "severity": severity,
@@ -113,7 +128,7 @@ class ProjectDiagnosisService:
             "project_name": "AgentFlow-AI",
             "repository_url": "git@github.com:HtLimite/AgentFlow-AI.git",
             "runtime": "Windows 本地 uv + Docker PostgreSQL / Redis / MinIO",
-            "question": "本地启动后页面能打开，但接口和 Docker 服务不稳定，帮我判断下一步。",
+            "source": "demo_sample",
             "logs": "Bind for 0.0.0.0:80 failed: port is already allocated\npsycopg.OperationalError: connection refused\ncontainer agentflow-api exited (1)",
             "files": [
                 {
@@ -127,12 +142,57 @@ class ProjectDiagnosisService:
             ],
         }
 
-    def _build_corpus(self, question: str, logs: str, files: list[Any], services: list[Any]) -> str:
-        file_text = "\n".join(f"{item.get('path', '')}\n{item.get('content', '')}" for item in files if isinstance(item, dict))
-        service_text = "\n".join(f"{item.get('name', '')} {item.get('status', '')} {item.get('detail', '')}" for item in services if isinstance(item, dict))
-        return "\n".join([question, logs, file_text, service_text])
+    def _clean_input_text(self, value: str) -> str:
+        lines: list[str] = []
+        for raw_line in value.splitlines():
+            line = raw_line.strip()
+            if not line or self._is_placeholder_line(line):
+                continue
+            lines.append(raw_line)
+        return "\n".join(lines).strip()
 
-    def _detect_signals(self, corpus: str, files: list[Any], services: list[Any]) -> list[dict[str, Any]]:
+    def _is_placeholder_line(self, line: str) -> bool:
+        normalized = re.sub(r"\s+", " ", line.strip().lower())
+        compact = normalized.replace(" ", "")
+        placeholder_normalized = {item.lower() for item in PLACEHOLDER_LINES}
+        placeholder_compact = {item.lower().replace(" ", "") for item in PLACEHOLDER_LINES}
+        if normalized in placeholder_normalized or compact in placeholder_compact:
+            return True
+        if len(compact) <= 14 and compact.endswith(("报错", "日志", "状态", "输出")):
+            return True
+        return False
+
+    def _clean_files(self, files: list[Any]) -> list[dict[str, str]]:
+        cleaned: list[dict[str, str]] = []
+        for item in files:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path") or "").strip()
+            content = self._clean_input_text(str(item.get("content") or ""))
+            if not content:
+                continue
+            cleaned.append({"path": path or "diagnosis-notes.txt", "content": content})
+        return cleaned
+
+    def _clean_services(self, services: list[Any]) -> list[dict[str, str]]:
+        cleaned: list[dict[str, str]] = []
+        for item in services:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            status = str(item.get("status") or "").strip()
+            detail = self._clean_input_text(str(item.get("detail") or ""))
+            if not name and not status and not detail:
+                continue
+            cleaned.append({"name": name, "status": status, "detail": detail})
+        return cleaned
+
+    def _build_corpus(self, logs: str, files: list[dict[str, str]], services: list[dict[str, str]]) -> str:
+        file_text = "\n".join(f"{item.get('path', '')}\n{item.get('content', '')}" for item in files)
+        service_text = "\n".join(f"{item.get('name', '')} {item.get('status', '')} {item.get('detail', '')}" for item in services)
+        return "\n".join([logs, file_text, service_text]).strip()
+
+    def _detect_signals(self, corpus: str, files: list[dict[str, str]], services: list[dict[str, str]]) -> list[dict[str, Any]]:
         signals: list[dict[str, Any]] = []
         for item in self._patterns:
             match = item["regex"].search(corpus)
@@ -149,7 +209,7 @@ class ProjectDiagnosisService:
                 }
             )
 
-        paths = [str(item.get("path", "")).lower() for item in files if isinstance(item, dict)]
+        paths = [str(item.get("path", "")).lower() for item in files if str(item.get("content", "")).strip()]
         if any("docker-compose" in path for path in paths):
             signals.append(
                 {
@@ -162,7 +222,7 @@ class ProjectDiagnosisService:
                 }
             )
         if services:
-            unhealthy = [item for item in services if isinstance(item, dict) and str(item.get("status", "")).lower() not in {"running", "healthy", "up", "ok"}]
+            unhealthy = [item for item in services if str(item.get("status", "")).lower() not in {"running", "healthy", "up", "ok"}]
             if unhealthy:
                 signals.append(
                     {
@@ -193,6 +253,7 @@ class ProjectDiagnosisService:
             "node_dependency": "前端依赖、Node 版本或路径别名不一致。",
             "docker_unhealthy": "容器启动后依赖未就绪或健康检查失败。",
             "permission": "本地目录、Docker volume 或脚本执行权限不足。",
+            "insufficient_input": "当前输入不足，不能把占位说明当作真实故障。",
         }
         result = [mapping[item["id"]] for item in signals if item.get("id") in mapping]
         if not result:
@@ -264,8 +325,8 @@ class ProjectDiagnosisService:
                     "title": "补齐最小诊断输入并执行 4 个基础检查",
                     "reason": "当前没有足够错误证据，需要先建立可重复验收路径。",
                     "steps": [
-                        "粘贴后端启动日志和浏览器报错。",
-                        "补充 docker ps 输出和 .env 关键变量名。",
+                        "粘贴真实后端启动日志和浏览器报错，不要只填占位说明。",
+                        "补充 docker ps 输出和 .env 关键变量名，不要粘贴真实密钥。",
                         "执行 health、persistence health、verify-local、前端 build。",
                     ],
                     "command": "scripts\\verify-local.cmd",
@@ -287,14 +348,17 @@ class ProjectDiagnosisService:
             return "warning"
         return "ok"
 
-    def _summary(self, project_name: str, runtime: str, score: int, severity: str, signals: list[dict[str, Any]]) -> str:
+    def _summary(self, project_name: str, runtime: str, score: int, severity: str, signals: list[dict[str, Any]], source: str) -> str:
+        prefix = "示例诊断：" if source == "demo_sample" else "手动诊断："
         if severity == "critical":
-            return f"{project_name} 当前不建议继续叠加功能，先处理启动/连接类阻塞问题；运行环境：{runtime}；可用度评分 {score}/100。"
+            return f"{prefix}{project_name} 当前不建议继续叠加功能，先处理启动/连接类阻塞问题；运行环境：{runtime}；可用度评分 {score}/100。"
         if severity == "warning":
-            return f"{project_name} 已具备基础演示条件，但仍有配置或服务健康风险；运行环境：{runtime}；可用度评分 {score}/100。"
+            if any(item.get("id") == "insufficient_input" for item in signals):
+                return f"{prefix}{project_name} 还没有提供足够真实诊断输入，不能判断项目是否故障；运行环境：{runtime}；可用度评分 {score}/100。"
+            return f"{prefix}{project_name} 已具备基础演示条件，但仍有配置或服务健康风险；运行环境：{runtime}；可用度评分 {score}/100。"
         if signals:
-            return f"{project_name} 未发现明显阻塞错误，可以进入页面验收和真实数据接入；运行环境：{runtime}；可用度评分 {score}/100。"
-        return f"{project_name} 缺少诊断输入，当前只能给出通用验收路径；运行环境：{runtime}；可用度评分 {score}/100。"
+            return f"{prefix}{project_name} 未发现明显阻塞错误，可以进入页面验收和真实数据接入；运行环境：{runtime}；可用度评分 {score}/100。"
+        return f"{prefix}{project_name} 缺少诊断输入，当前只能给出通用验收路径；运行环境：{runtime}；可用度评分 {score}/100。"
 
     def _build_artifacts(self, project_name: str, summary: str, signals: list[dict[str, Any]], actions: list[dict[str, Any]]) -> list[dict[str, str]]:
         report = [f"# {project_name} 项目诊断报告", "", "## 结论", summary, "", "## 发现"]

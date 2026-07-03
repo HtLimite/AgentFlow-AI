@@ -17,7 +17,8 @@
 - 本地 uv 后端连接 Docker PostgreSQL，走数据库优先持久化链路。
 - 模型供应商配置、固定选项输入、密钥脱敏。
 - Chat、Knowledge、Project Diagnosis、Agent、Tools、Workflow、Prompt、Eval、Dashboard 主链路。
-- 项目诊断：输入日志、关键配置片段、服务状态，输出阻塞原因、修复动作、验收命令和诊断报告。
+- 项目诊断：输入真实日志、关键配置片段、服务状态，输出阻塞原因、修复动作、验收命令和诊断报告。
+- 诊断页默认空输入，演示样例需要手动加载，并会标记为 `demo_sample`，避免把示例故障当成真实故障。
 - PDF 解析、文本清洗、RAG 问答、引用来源展示。
 - React Flow 工作流画布、工具调用审计持久化、Prompt/Eval 对比中心、Demo 动线。
 - pgvector SQL 检索基础能力、多租户 RBAC 请求上下文。
@@ -155,12 +156,12 @@ curl http://localhost:8000/api/project-diagnosis/demo
 | Demo | `/demo` | 在线 Demo 演示动线与讲解词 |
 | Showcase | `/showcase` | 作品展示与面试讲解入口 |
 | Dashboard | `/dashboard` | 调用量、Token、耗时、失败率看板 |
-| Project Diagnosis | `/diagnosis` | 粘贴日志、配置片段和服务状态，输出阻塞原因、修复动作、验收命令和诊断报告 |
+| Project Diagnosis | `/diagnosis` | 粘贴真实日志、配置片段和服务状态，输出阻塞原因、修复动作、验收命令和诊断报告；示例需手动加载 |
 | Settings | `/settings` | 模型供应商固定选项、连接测试、密钥脱敏 |
 | Chat | `/chat` | 调用后端 Chat 接口 |
 | Knowledge | `/knowledge` | 文档上传、清洗、切片、RAG 问答、引用来源 |
 | Agents | `/agents` | Agent 调用工具并返回 trace_id / persistent_audit_id |
-| Workflows | `/workflows` | React Flow 工作流画布、拖拽、连线、节点输出 |
+| Workflows | `/workflows` | React Flow 工作流画布、拖拽、连线和运行结果 |
 | Audit | `/audit` | 数据库优先的工具调用审计记录、统计和详情 |
 | Prompts | `/prompts` | Prompt 变量渲染与测试 |
 | Evals | `/evals` | Prompt / Eval 三组对比中心 |
