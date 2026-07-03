@@ -36,7 +36,8 @@ export function EvalComparisonConsole() {
     }
   }
 
-  const best = runs.length ? runs.reduce((prev, item) => (item.score > prev.score ? item : prev), runs[0]) : null;
+  const best = runs.reduce<EvalRun | null>((prev, item) => (prev === null || item.score > prev.score ? item : prev), null);
+  const firstCases = runs.at(0)?.cases ?? [];
 
   return (
     <div className="space-y-4">
@@ -79,7 +80,7 @@ export function EvalComparisonConsole() {
               </tr>
             </thead>
             <tbody>
-              {(runs[0]?.cases ?? []).map((item, index) => (
+              {firstCases.map((item, index) => (
                 <tr key={item.question}>
                   <td className="border-b border-white/10 py-3 pr-4 text-slate-300">{item.question}</td>
                   {runs.map((run) => (
