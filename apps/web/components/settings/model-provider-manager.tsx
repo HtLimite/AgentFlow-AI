@@ -14,7 +14,17 @@ interface ProviderItem {
   enabled: boolean;
 }
 
+interface AIModelItem {
+  id: number;
+  provider_id: number;
+  model_name: string;
+  model_type: ModelType;
+  context_window: number | null;
+  enabled: boolean;
+}
+
 type ProviderType = "openai-compatible" | "ollama" | "azure-openai";
+type ModelType = "chat" | "embedding" | "rerank";
 
 type ProviderPreset = {
   key: string;
@@ -30,6 +40,12 @@ const PROVIDER_TYPE_OPTIONS: Array<{ value: ProviderType; label: string; descrip
   { value: "openai-compatible", label: "OpenAI-Compatible", description: "DeepSeek、Qwen、Kimi、OpenRouter、Doubao 等兼容格式" },
   { value: "ollama", label: "Ollama", description: "本地 Ollama 服务，默认 http://localhost:11434/v1" },
   { value: "azure-openai", label: "Azure OpenAI", description: "Azure OpenAI 专用接入格式" },
+];
+
+const MODEL_TYPE_OPTIONS: Array<{ value: ModelType; label: string }> = [
+  { value: "chat", label: "Chat 对话模型" },
+  { value: "embedding", label: "Embedding 向量模型" },
+  { value: "rerank", label: "Rerank 重排模型" },
 ];
 
 const PROVIDER_PRESETS: ProviderPreset[] = [
@@ -118,6 +134,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 
 export function ModelProviderManager() {
   const [items, setItems] = useState<ProviderItem[]>([]);
+  const [models, setModels] = useState<AIModelItem[]>([]);
   const [message, setMessage] = useState("等待操作");
   const [presetKey, setPresetKey] = useState("deepseek");
   const [form, setForm] = useState({
@@ -126,13 +143,27 @@ export function ModelProviderManager() {
     baseUrl: "https://api.deepseek.com/v1",
     apiKey: "",
   });
+  const [modelForm, setModelForm] = useState({
+    providerId: "",
+    modelName: "",
+    modelType: "chat" as ModelType,
+    contextWindow: "",
+  });
 
   const selectedPreset = useMemo(() => PROVIDER_PRESETS.find((item) => item.key === presetKey) ?? PROVIDER_PRESETS[0], [presetKey]);
   const providerTypeMeta = PROVIDER_TYPE_OPTIONS.find((item) => item.value === form.providerType);
+  const providerNameMap = useMemo(() => new Map(items.map((item) => [item.id, item.name])), [items]);
 
   async function load() {
-    const data = await apiGet<ProviderItem[]>("/api/model-providers");
-    setItems(data);
+    const [providerData, modelData] = await Promise.all([
+      apiGet<ProviderItem[]>("/api/model-providers"),
+      apiGet<AIModelItem[]>("/api/model-providers/models/list"),
+    ]);
+    setItems(providerData);
+    setModels(modelData);
+    if (!modelForm.providerId && providerData.length > 0) {
+      setModelForm((current) => ({ ...current, providerId: String(providerData[0].id) }));
+    }
   }
 
   useEffect(() => {
@@ -155,15 +186,37 @@ export function ModelProviderManager() {
       setMessage("请填写 API Key；保存后只会在后端加密存储，不会明文回显");
       return;
     }
-    await apiJson("/api/model-providers", {
+    const created = await apiJson<ProviderItem>("/api/model-providers", {
       name: form.name,
       provider_type: form.providerType,
       base_url: form.baseUrl,
       api_key: form.apiKey,
       enabled: true,
     });
-    setMessage("模型供应商已保存");
+    setMessage("模型供应商已保存，请继续在右侧添加该供应商下的真实模型名");
     setForm((current) => ({ ...current, apiKey: "" }));
+    setModelForm((current) => ({ ...current, providerId: String(created.id) }));
+    await load();
+  }
+
+  async function createModel() {
+    if (!modelForm.providerId) {
+      setMessage("请先选择供应商");
+      return;
+    }
+    if (!modelForm.modelName.trim()) {
+      setMessage("请填写真实模型名，例如 deepseek-chat、qwen-plus、doubao-seed-1-6 等");
+      return;
+    }
+    await apiJson<AIModelItem>("/api/model-providers/models", {
+      provider_id: Number(modelForm.providerId),
+      model_name: modelForm.modelName.trim(),
+      model_type: modelForm.modelType,
+      context_window: modelForm.contextWindow ? Number(modelForm.contextWindow) : null,
+      enabled: true,
+    });
+    setMessage("模型已保存；Chat 页面会自动从模型列表加载并支持切换");
+    setModelForm((current) => ({ ...current, modelName: "", contextWindow: "" }));
     await load();
   }
 
@@ -176,7 +229,7 @@ export function ModelProviderManager() {
     <div className="grid gap-4 xl:grid-cols-[460px_1fr]">
       <Card>
         <h2 className="font-semibold">新增模型供应商</h2>
-        <p className="mt-2 text-sm text-slate-400">固定格式字段已改为选项输入：供应商预设、协议类型都会限制范围，避免随便填导致后端脏数据。</p>
+        <p className="mt-2 text-sm text-slate-400">先保存供应商，再添加它下面可调用的真实模型名。Chat 页面切换的是模型，不是只切供应商。</p>
         <div className="mt-4 space-y-3">
           <label className="block text-sm text-slate-300">
             <span className="mb-1 block">供应商预设</span>
@@ -235,23 +288,71 @@ export function ModelProviderManager() {
         </div>
         <div className="mt-4 rounded-xl bg-white/10 p-3 text-sm text-slate-300">状态：{message}</div>
       </Card>
-      <Card>
-        <h2 className="font-semibold">供应商列表</h2>
-        <div className="mt-4 space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-medium">{item.name}</div>
-                  <div className="mt-1 text-xs text-slate-400">{item.base_url}</div>
-                  <div className="mt-1 text-xs text-slate-500">{item.provider_type} · {item.api_key_masked}</div>
+      <div className="space-y-4">
+        <Card>
+          <h2 className="font-semibold">新增模型</h2>
+          <p className="mt-2 text-sm text-slate-400">模型名必须填写供应商真实支持的 model 参数。保存后，Chat 页面会在下拉框中显示。</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <label className="block text-sm text-slate-300">
+              <span className="mb-1 block">所属供应商</span>
+              <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.providerId} onChange={(event) => setModelForm({ ...modelForm, providerId: event.target.value })}>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm text-slate-300">
+              <span className="mb-1 block">模型类型</span>
+              <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.modelType} onChange={(event) => setModelForm({ ...modelForm, modelType: event.target.value as ModelType })}>
+                {MODEL_TYPE_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm text-slate-300 md:col-span-2">
+              <span className="mb-1 block">真实模型名</span>
+              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.modelName} onChange={(event) => setModelForm({ ...modelForm, modelName: event.target.value })} placeholder="例如 deepseek-chat、qwen-plus、kimi-k2-0711-preview" />
+            </label>
+            <label className="block text-sm text-slate-300">
+              <span className="mb-1 block">上下文窗口，可选</span>
+              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.contextWindow} onChange={(event) => setModelForm({ ...modelForm, contextWindow: event.target.value })} placeholder="例如 128000" type="number" />
+            </label>
+          </div>
+          <div className="mt-4"><Button onClick={createModel}>保存模型</Button></div>
+        </Card>
+        <Card>
+          <h2 className="font-semibold">供应商列表</h2>
+          <div className="mt-4 space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="font-medium">{item.name}</div>
+                    <div className="mt-1 text-xs text-slate-400">{item.base_url}</div>
+                    <div className="mt-1 text-xs text-slate-500">{item.provider_type} · {item.api_key_masked}</div>
+                  </div>
+                  <Button onClick={() => testProvider(item.id)}>测试</Button>
                 </div>
-                <Button onClick={() => testProvider(item.id)}>测试</Button>
               </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <h2 className="font-semibold">模型列表</h2>
+          <div className="mt-4 space-y-3">
+            {models.length === 0 ? (
+              <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">暂无模型，请先新增模型。</div>
+            ) : (
+              models.map((item) => (
+                <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
+                  <div className="font-medium">{item.model_name}</div>
+                  <div className="mt-1 text-xs text-slate-500">{providerNameMap.get(item.provider_id) ?? `Provider #${item.provider_id}`} · {item.model_type} · {item.enabled ? "enabled" : "disabled"}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
