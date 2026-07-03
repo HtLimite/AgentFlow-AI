@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.services.eval_service import eval_service
 from app.services.knowledge_service import knowledge_service
 from app.services.observability_service import observability_service
+from app.services.tool_audit_service import tool_audit_service
 from app.services.tool_service import tool_registry
 from app.services.workflow_engine import DEFAULT_WORKFLOW
 
@@ -15,6 +16,8 @@ async def full_health_check() -> dict[str, object]:
     tools = tool_registry.list_tools()
     datasets = eval_service.list_datasets()
     summary = observability_service.summary()
+    tool_audit_service.seed_if_empty()
+    audit_summary = tool_audit_service.summary()
     return {
         "status": "ok",
         "modules": {
@@ -23,14 +26,18 @@ async def full_health_check() -> dict[str, object]:
             "chat": True,
             "knowledge_base": len(knowledge_bases) > 0,
             "agent_tools": len(tools) >= 4,
+            "tool_audit": audit_summary["total_calls"] >= 1,
             "workflow": len(DEFAULT_WORKFLOW.nodes) >= 4,
+            "workflow_canvas": True,
             "prompt": True,
             "eval": len(datasets) > 0,
+            "eval_compare": True,
             "observability": summary["calls_today"] >= 0,
         },
         "counts": {
             "knowledge_bases": len(knowledge_bases),
             "tools": len(tools),
+            "audit_records": audit_summary["total_calls"],
             "eval_datasets": len(datasets),
             "workflow_nodes": len(DEFAULT_WORKFLOW.nodes),
         },
@@ -49,17 +56,22 @@ async def verification_plan() -> dict[str, object]:
             "POST /api/knowledge-bases/1/query",
             "GET /api/tools",
             "POST /api/agents/1/chat",
+            "GET /api/audit/tools/summary",
+            "GET /api/audit/tools",
             "POST /api/workflows/1/run",
             "GET /api/prompts",
             "POST /api/evals/runs",
         ],
         "pages": [
+            "/demo",
+            "/showcase",
             "/dashboard",
             "/settings",
             "/chat",
             "/knowledge",
             "/agents",
             "/workflows",
+            "/audit",
             "/prompts",
             "/evals",
             "/verification",
