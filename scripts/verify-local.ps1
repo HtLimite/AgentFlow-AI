@@ -1,6 +1,15 @@
 $ErrorActionPreference = "Stop"
 
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 $ApiUrl = if ($env:AGENTFLOW_API_URL) { $env:AGENTFLOW_API_URL } else { "http://localhost:8000" }
+
+Add-Type -AssemblyName System.Net.Http
+$script:HttpClient = [System.Net.Http.HttpClient]::new()
+$script:HttpClient.DefaultRequestHeaders.Accept.Clear()
+[void]$script:HttpClient.DefaultRequestHeaders.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new("application/json"))
 
 function Invoke-AgentFlowJson {
   param(
@@ -10,10 +19,21 @@ function Invoke-AgentFlowJson {
   )
 
   $uri = "$ApiUrl$Path"
+  $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::new($Method), $uri)
   if ($Body) {
-    return Invoke-RestMethod -Method $Method -Uri $uri -ContentType "application/json; charset=utf-8" -Body $Body
+    $request.Content = [System.Net.Http.StringContent]::new($Body, [System.Text.Encoding]::UTF8, "application/json")
   }
-  return Invoke-RestMethod -Method $Method -Uri $uri
+
+  $response = $script:HttpClient.SendAsync($request).GetAwaiter().GetResult()
+  $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+  $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+  if (-not $response.IsSuccessStatusCode) {
+    throw "HTTP $([int]$response.StatusCode) $($response.ReasonPhrase): $text"
+  }
+  if ([string]::IsNullOrWhiteSpace($text)) {
+    return $null
+  }
+  return $text | ConvertFrom-Json
 }
 
 function Assert-True {
