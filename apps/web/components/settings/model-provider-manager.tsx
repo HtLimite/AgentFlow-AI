@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiGet, apiJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -154,21 +154,24 @@ export function ModelProviderManager() {
   const providerTypeMeta = PROVIDER_TYPE_OPTIONS.find((item) => item.value === form.providerType);
   const providerNameMap = useMemo(() => new Map(items.map((item) => [item.id, item.name])), [items]);
 
-  async function load() {
+  const load = useCallback(async () => {
     const [providerData, modelData] = await Promise.all([
       apiGet<ProviderItem[]>("/api/model-providers"),
       apiGet<AIModelItem[]>("/api/model-providers/models/list"),
     ]);
     setItems(providerData);
     setModels(modelData);
-    if (!modelForm.providerId && providerData.length > 0) {
-      setModelForm((current) => ({ ...current, providerId: String(providerData[0].id) }));
-    }
-  }
+    setModelForm((current) => {
+      if (current.providerId || providerData.length === 0) {
+        return current;
+      }
+      return { ...current, providerId: String(providerData[0].id) };
+    });
+  }, []);
 
   useEffect(() => {
     load().catch((error) => setMessage(error.message));
-  }, []);
+  }, [load]);
 
   function applyPreset(nextPresetKey: string) {
     const nextPreset = PROVIDER_PRESETS.find((item) => item.key === nextPresetKey) ?? PROVIDER_PRESETS[0];
