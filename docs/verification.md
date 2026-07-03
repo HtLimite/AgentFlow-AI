@@ -5,10 +5,10 @@
 本项目当前验收分为五层：
 
 ```txt
-Docker 基础设施 → uv 后端 → 持久化接口验收 → 构建测试 → 页面验收
+Docker 基础设施 → uv 后端 → 持久化接口验收 → 项目诊断闭环 → 构建测试 → 页面验收
 ```
 
-V4 的主验收路径必须启动 Docker 基础设施。内存 fallback 只用于开发兜底，不能作为主要验收结论。
+V6 的主验收路径必须启动 Docker 基础设施。内存 fallback 只用于开发兜底，不能作为主要验收结论。
 
 ## 0. 启动 Docker 基础设施
 
@@ -87,7 +87,7 @@ Linux / macOS / Git Bash：
 bash scripts/verify-local.sh
 ```
 
-当前脚本覆盖 14 步：
+当前脚本覆盖 16 步：
 
 | 步骤 | 验证内容 | 接口 |
 |---|---|---|
@@ -95,24 +95,44 @@ bash scripts/verify-local.sh
 | 2 | 系统模块健康检查 | `GET /api/system/health/full` |
 | 3 | 严格持久化健康检查 | `GET /api/system/persistence/health` |
 | 4 | RBAC 请求上下文 | `GET /api/system/rbac/context` |
-| 5 | Dashboard 聚合 | `GET /api/dashboard/summary` |
-| 6 | 知识库列表 | `GET /api/knowledge-bases` |
-| 7 | 知识库 RAG 问答 | `POST /api/knowledge-bases/1/query` |
-| 8 | 工具列表 | `GET /api/tools` |
-| 9 | Agent 工具调用与持久化审计 | `POST /api/agents/1/chat` |
-| 10 | 工具审计统计 | `GET /api/audit/tools/summary` |
-| 11 | 工具审计记录 | `GET /api/audit/tools` |
-| 12 | Prompt 列表 | `GET /api/prompts` |
-| 13 | Workflow 运行 | `POST /api/workflows/1/run` |
-| 14 | Eval 评测运行 | `POST /api/evals/runs` |
+| 5 | 模型运行时健康检查 | `GET /api/system/model-runtime/health` |
+| 6 | Dashboard 聚合 | `GET /api/dashboard/summary` |
+| 7 | 项目诊断演示 | `GET /api/project-diagnosis/demo` |
+| 8 | 知识库列表 | `GET /api/knowledge-bases` |
+| 9 | 知识库 RAG 问答 | `POST /api/knowledge-bases/1/query` |
+| 10 | 工具列表 | `GET /api/tools` |
+| 11 | Agent 工具调用与持久化审计 | `POST /api/agents/1/chat` |
+| 12 | 工具审计统计 | `GET /api/audit/tools/summary` |
+| 13 | 工具审计记录 | `GET /api/audit/tools` |
+| 14 | Prompt 列表 | `GET /api/prompts` |
+| 15 | Workflow 运行 | `POST /api/workflows/1/run` |
+| 16 | Eval 评测运行 | `POST /api/evals/runs` |
 
 通过标准：
 
 ```txt
-AgentFlow-AI V4 persistent verification completed.
+AgentFlow-AI V6 diagnosis verification completed.
 ```
 
-## 3. 后端测试
+## 3. 项目诊断专项验收
+
+项目诊断是当前最贴近真实使用的功能闭环。它不依赖真实模型 API Key，默认使用本地规则识别常见 DevOps 问题。
+
+演示接口：
+
+```bash
+curl http://localhost:8000/api/project-diagnosis/demo
+```
+
+需要看到：
+
+- `severity` 为 `critical` 或 `warning`。
+- `signals` 中有识别到的问题信号。
+- `actions` 中有优先修复动作。
+- `next_verification` 中有修复后的验收命令。
+- `artifacts` 中包含 `diagnosis-report.md`。
+
+## 4. 后端测试
 
 ```bash
 cd apps/api
@@ -126,7 +146,7 @@ uv run python -m pytest
 pnpm test:api
 ```
 
-## 4. 前端构建
+## 5. 前端构建
 
 ```bash
 pnpm --filter @agentflow/web build
@@ -144,13 +164,14 @@ pnpm build:web
 - TypeScript 是否通过。
 - 页面和组件 import 是否正常。
 
-## 5. 页面验收
+## 6. 页面验收
 
 | 页面 | 验收点 |
 |---|---|
-| `/demo` | 可看到 V4 在线演示动线 |
+| `/demo` | 可看到在线演示动线 |
 | `/showcase` | 可看到作品展示入口 |
 | `/dashboard` | 可看到调用量、Token、耗时、失败率等看板信息 |
+| `/diagnosis` | 可输入日志和配置片段，返回问题信号、修复动作、验收命令和诊断报告 |
 | `/settings` | 可新增供应商，供应商固定格式字段为下拉选项，API Key 脱敏回显 |
 | `/chat` | 可发送问题并收到后端回答 |
 | `/knowledge` | 可上传 txt/md/pdf，问答返回引用来源 |
@@ -161,15 +182,14 @@ pnpm build:web
 | `/evals` | 可运行 Prompt/Eval 对比 |
 | `/verification` | 页面内系统体检通过 |
 
-## 6. PDF / RAG 专项验收
+## 7. PDF / RAG 专项验收
 
 - 上传 PDF 后不再出现 `%PDF-1.7`、`FlateDecode` 这类二进制内容。
-- 上传 PDF 后不再出现 `由PDA回调` 这类控制字符。
 - 扫描版 PDF 无文本时能返回明确错误，而不是入库乱码。
 - RAG 回答里有 `citations`、`document`、`score`、`chunk_index`。
 - RAG debug 中能看到当前检索策略。
 
-## 7. 完整 Docker 模式
+## 8. 完整 Docker 模式
 
 完整 Docker 模式不是当前推荐开发方式，但仍保留用于部署演示：
 
@@ -179,7 +199,7 @@ docker compose -f deploy/docker-compose.yml --env-file .env up -d --build
 
 注意：当前 `.env.example` 默认适配本地 uv 后端。如果要完整 Docker 跑 api，`DATABASE_URL`、`REDIS_URL`、`MINIO_ENDPOINT` 需要改为 Docker service name，例如 `postgres`、`redis`、`minio`。
 
-## 8. 常见判断
+## 9. 常见判断
 
 ### 接口返回 fallback 或 strategy=local_vector
 
@@ -195,21 +215,6 @@ scripts\dev-infra.cmd
 
 这说明后端进程启动了，但数据库没有连通或表结构没初始化。检查 Docker Desktop、PostgreSQL 容器和 `.env` 地址。
 
-### Health 通过，但 Settings 保存失败
+### 项目诊断只返回通用建议
 
-大概率是数据库未启动或 `.env` 仍使用 Docker 内部主机名。uv 本地后端需要：
-
-```txt
-DATABASE_URL=postgresql+psycopg://agentflow:agentflow@localhost:5432/agentflow
-REDIS_URL=redis://localhost:6379/0
-MINIO_ENDPOINT=localhost:9000
-```
-
-### 接口全部 PASS，但页面空白
-
-优先检查前端环境：
-
-```bash
-pnpm install
-pnpm dev:web
-```
+说明输入证据不足。补充后端启动日志、服务状态、环境变量名、docker-compose、Nginx 配置或构建报错片段后再分析。
