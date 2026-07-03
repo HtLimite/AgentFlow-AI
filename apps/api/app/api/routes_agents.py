@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.services.agent_service import agent_service
+from app.services.tool_service import tool_registry
 
 router = APIRouter()
 
@@ -13,9 +14,15 @@ class AgentChatRequest(BaseModel):
 
 @router.get("")
 async def list_agents() -> list[dict[str, object]]:
+    tools = tool_registry.list_tools()
     return [
-        {"id": 1, "name": "企业制度问答 Agent", "tools": ["knowledge_search"]},
-        {"id": 2, "name": "售后数据分析 Agent", "tools": ["sql_query", "calculator"]},
+        {
+            "id": 1,
+            "name": "通用工具 Agent",
+            "description": "根据输入自动选择知识库检索、计算器、只读 SQL 或 HTTP 请求工具。",
+            "tools": [tool["name"] for tool in tools],
+            "source": "tool_registry",
+        }
     ]
 
 
