@@ -25,13 +25,16 @@ class LLMService:
             f"User input: {user_question}\n"
             f"Target model: {model or settings.default_chat_model}, temperature={temperature}."
         )
-        prompt_tokens = self._estimate_tokens("\n".join(message.content for message in messages))
-        completion_tokens = self._estimate_tokens(content)
+        prompt_tokens = self.estimate_tokens("\n".join(message.content for message in messages))
+        completion_tokens = self.estimate_tokens(content)
         return LLMResult(
             content=content,
             usage={"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "total_tokens": prompt_tokens + completion_tokens},
             latency_ms=int((time.perf_counter() - started) * 1000),
         )
+
+    def estimate_tokens(self, text: str) -> int:
+        return self._estimate_tokens(text)
 
     def _estimate_tokens(self, text: str) -> int:
         return max(1, len(text) // 4)

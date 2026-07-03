@@ -1,11 +1,9 @@
-import re
 from dataclasses import dataclass, field
 from itertools import count
 
+from app.services.judge_service import judge_service
 from app.services.rag_service import rag_service
 from app.services.text_cleaner import clean_extracted_text
-
-TERM_RE = re.compile(r"[\u4e00-\u9fff]{2,}|[a-zA-Z0-9_]{2,}")
 
 
 @dataclass
@@ -30,7 +28,7 @@ class EvalService:
             1: EvalDataset(
                 id=1,
                 name="Default RAG eval",
-                description="Scores runtime RAG output against expected terms and citations.",
+                description="Scores runtime RAG output against expected terms, citations and judge rubric.",
                 cases=[EvalCase("sample question", "sample", "sample")],
             )
         }
@@ -43,27 +41,40 @@ class EvalService:
         eval_cases = [EvalCase(item, "", "") for item in cases] if cases else (dataset.cases if dataset else [])
         results = [await self._score_case(item) for item in eval_cases]
         score = round(sum(float(item["score"]) for item in results) / len(results), 2) if results else 0
-        return {"id": next(self._run_ids), "status": "completed", "dataset_id": dataset_id, "model": model, "score": score, "cases": results, "source": "runtime_rag"}
+        return {
+            "id": next(self._run_ids),
+            "status": "completed",
+            "dataset_id": dataset_id,
+            "model": model,
+            "score": score,
+            "cases": results,
+            "source": "runtime_rag_judge",
+            "judge_mode": "heuristic_judge",
+        }
 
     async def _score_case(self, item: EvalCase) -> dict[str, object]:
         rag = await rag_service.answer(kb_id=1, question=item.question, top_k=3)
         answer = clean_extracted_text(str(rag.get("answer", "")))
         citations = rag.get("citations", [])
-        terms = self._terms(item.expected_answer + " " + item.scoring_criteria)
-        if terms:
-            hits = sum(1 for term in terms if term.lower() in answer.lower())
-            score = round((hits / len(terms)) * 100, 2)
-            reason = f"matched_terms={hits}/{len(terms)}"
-        else:
-            score = 100.0 if answer else 0.0
-            reason = "custom_case_without_expected_answer"
-        if not citations:
-            score = min(score, 60.0)
-            reason += "; no_citations_cap=60"
-        return {"question": item.question, "answer": answer, "score": score, "reason": reason, "citation_count": len(citations) if isinstance(citations, list) else 0, "source": rag.get("source", "unknown")}
-
-    def _terms(self, text: str) -> set[str]:
-        return {item for item in TERM_RE.findall(clean_extracted_text(text)) if item.lower() not in {"what", "how", "the", "and"}}
+        citation_count = len(citations) if isinstance(citations, list) else 0
+        judge = await judge_service.judge(
+            question=item.question,
+            answer=answer,
+            expected_answer=item.expected_answer,
+            scoring_criteria=item.scoring_criteria,
+            citation_count=citation_count,
+        )
+        return {
+            "question": item.question,
+            "answer": answer,
+            "score": judge.score,
+            "reason": judge.reason,
+            "citation_count": citation_count,
+            "judge_mode": judge.mode,
+            "matched_terms": judge.matched_terms,
+            "total_terms": judge.total_terms,
+            "source": rag.get("source", "unknown"),
+        }
 
 
 eval_service = EvalService()

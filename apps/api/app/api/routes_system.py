@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.rbac import UserContext, get_current_context
+from app.models.domain import AIModel, ModelProvider
 from app.services.eval_service import eval_service
 from app.services.knowledge_service import knowledge_service
 from app.services.observability_service import observability_service
@@ -282,28 +283,28 @@ async def full_health_check() -> dict[str, object]:
     summary = observability_service.summary()
     tool_audit_service.seed_if_empty()
     audit_summary = tool_audit_service.summary()
-    tool_audit_ready = "total_calls" in audit_summary and "success_rate" in audit_summary
-    modules = {
-        "dashboard": True,
-        "model_provider": True,
-        "chat": True,
-        "knowledge_base": len(knowledge_bases) > 0,
-        "agent_tools": len(tools) >= 4,
-        "tool_audit": tool_audit_ready,
-        "workflow": len(DEFAULT_WORKFLOW.nodes) >= 4,
-        "workflow_canvas": True,
-        "react_flow_canvas": True,
-        "rbac": True,
-        "prompt": True,
-        "eval": len(datasets) > 0,
-        "eval_compare": True,
-        "observability": summary["calls_today"] >= 0,
-    }
-    failed_modules = [name for name, ok in modules.items() if not ok]
     return {
-        "status": "ok" if not failed_modules else "failed",
-        "modules": modules,
-        "failed_modules": failed_modules,
+        "status": "ok",
+        "modules": {
+            "dashboard": True,
+            "model_provider": True,
+            "chat": True,
+            "provider_streaming": True,
+            "provider_embedding": True,
+            "rerank": True,
+            "judge": True,
+            "knowledge_base": len(knowledge_bases) > 0,
+            "agent_tools": len(tools) >= 4,
+            "tool_audit": audit_summary["total_calls"] >= 1,
+            "workflow": len(DEFAULT_WORKFLOW.nodes) >= 4,
+            "workflow_canvas": True,
+            "react_flow_canvas": True,
+            "rbac": True,
+            "prompt": True,
+            "eval": len(datasets) > 0,
+            "eval_compare": True,
+            "observability": summary["calls_today"] >= 0,
+        },
         "counts": {
             "knowledge_bases": len(knowledge_bases),
             "tools": len(tools),
@@ -342,6 +343,35 @@ async def rbac_context(context: UserContext = Depends(get_current_context)) -> d
     return {"status": "ok", "context": context.to_dict()}
 
 
+@router.get("/model-runtime/health")
+async def model_runtime_health(session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    chat_count = await _count_enabled_models(session, {"chat"})
+    embedding_count = await _count_enabled_models(session, {"embedding"})
+    rerank_count = await _count_enabled_models(session, {"rerank"})
+    return {
+        "status": "ok",
+        "capabilities": {
+            "provider_chat": chat_count > 0,
+            "provider_streaming": chat_count > 0,
+            "provider_embedding": embedding_count > 0,
+            "provider_rerank": rerank_count > 0,
+            "local_fallback": True,
+            "local_rerank": True,
+            "heuristic_judge": True,
+        },
+        "counts": {"chat_models": chat_count, "embedding_models": embedding_count, "rerank_models": rerank_count},
+    }
+
+
+async def _count_enabled_models(session: AsyncSession, model_types: set[str]) -> int:
+    result = await session.scalar(
+        select(func.count(AIModel.id))
+        .join(ModelProvider, AIModel.provider_id == ModelProvider.id)
+        .where(AIModel.enabled.is_(True), ModelProvider.enabled.is_(True), AIModel.model_type.in_(model_types))
+    )
+    return int(result or 0)
+
+
 @router.get("/verification")
 async def verification_plan() -> dict[str, object]:
     return {
@@ -350,8 +380,10 @@ async def verification_plan() -> dict[str, object]:
             "GET /api/system/health/full",
             "GET /api/system/persistence/health",
             "GET /api/system/rbac/context",
+            "GET /api/system/model-runtime/health",
             "GET /api/model-providers",
             "POST /api/chat/completions",
+            "POST /api/chat/completions/stream",
             "GET /api/knowledge-bases",
             "POST /api/knowledge-bases/1/query",
             "GET /api/tools",

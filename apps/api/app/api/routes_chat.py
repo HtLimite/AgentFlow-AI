@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -72,6 +73,7 @@ async def chat_completions(payload: ChatCompletionRequest, session: AsyncSession
         "model_id": model_id,
         "model_source": model_source,
         "mode": mode,
+        "stream_supported": provider is not None,
         "warning": warning,
     }
 
@@ -124,7 +126,7 @@ async def _find_model(session: AsyncSession, model_name: str, provider_id: int |
 
 
 async def _default_model_for_provider(session: AsyncSession, provider_id: int) -> AIModel | None:
-    result = await session.scalars(select(AIModel).where(AIModel.enabled.is_(True), AIModel.provider_id == provider_id).order_by(AIModel.id.desc()).limit(1))
+    result = await session.scalars(select(AIModel).where(AIModel.enabled.is_(True), AIModel.provider_id == provider_id, AIModel.model_type == "chat").order_by(AIModel.id.desc()).limit(1))
     return result.first()
 
 
@@ -132,7 +134,7 @@ async def _default_model(session: AsyncSession) -> AIModel | None:
     stmt = (
         select(AIModel)
         .join(ModelProvider, AIModel.provider_id == ModelProvider.id)
-        .where(AIModel.enabled.is_(True), ModelProvider.enabled.is_(True))
+        .where(AIModel.enabled.is_(True), ModelProvider.enabled.is_(True), AIModel.model_type == "chat")
         .order_by(AIModel.id.desc())
         .limit(1)
     )
@@ -150,14 +152,42 @@ async def _record_call(session: AsyncSession, payload: ChatCompletionRequest, pr
             raise
 
 
-async def _stream_answer(payload: ChatCompletionRequest) -> AsyncIterator[bytes]:
-    result = await llm_service.complete(payload.messages, payload.model, payload.temperature)
-    for chunk in result.content.splitlines():
-        await asyncio.sleep(0.02)
-        yield f"data: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n".encode("utf-8")
+async def _stream_answer(payload: ChatCompletionRequest, session: AsyncSession, provider: ModelProvider | None, model_name: str | None, model_source: str) -> AsyncIterator[bytes]:
+    started = time.perf_counter()
+    chunks: list[str] = []
+    prompt_tokens = llm_service.estimate_tokens("\n".join(message.content for message in payload.messages))
+    active_model = model_name or "local-fallback"
+    try:
+        yield f"data: {json.dumps({'type': 'meta', 'mode': 'provider' if provider else 'local_fallback', 'model': active_model, 'model_source': model_source}, ensure_ascii=False)}\n\n".encode("utf-8")
+        if provider is not None and model_name:
+            async for chunk in provider_adapter.stream_chat(provider, payload.messages, model_name, payload.temperature):
+                chunks.append(chunk)
+                yield f"data: {json.dumps({'type': 'delta', 'content': chunk}, ensure_ascii=False)}\n\n".encode("utf-8")
+        else:
+            result = await llm_service.complete(payload.messages, model_name, payload.temperature)
+            for chunk in result.content.splitlines():
+                await asyncio.sleep(0.02)
+                chunks.append(chunk)
+                yield f"data: {json.dumps({'type': 'delta', 'content': chunk}, ensure_ascii=False)}\n\n".encode("utf-8")
+        content = "".join(chunks)
+        completion_tokens = llm_service.estimate_tokens(content)
+        await _record_call(
+            session,
+            payload,
+            provider.name if provider else None,
+            active_model,
+            prompt_tokens,
+            completion_tokens,
+            int((time.perf_counter() - started) * 1000),
+        )
+        yield f"data: {json.dumps({'type': 'done', 'total_tokens': prompt_tokens + completion_tokens}, ensure_ascii=False)}\n\n".encode("utf-8")
+    except Exception as exc:
+        await _record_call(session, payload, provider.name if provider else None, active_model, prompt_tokens, 0, int((time.perf_counter() - started) * 1000), "failed", str(exc))
+        yield f"data: {json.dumps({'type': 'error', 'message': str(exc)}, ensure_ascii=False)}\n\n".encode("utf-8")
     yield b"data: [DONE]\n\n"
 
 
 @router.post("/completions/stream")
-async def stream_chat_completions(payload: ChatCompletionRequest) -> StreamingResponse:
-    return StreamingResponse(_stream_answer(payload), media_type="text/event-stream")
+async def stream_chat_completions(payload: ChatCompletionRequest, session: AsyncSession = Depends(get_db)) -> StreamingResponse:
+    provider, model_name, _model_id, model_source = await _resolve_provider_and_model(session, payload)
+    return StreamingResponse(_stream_answer(payload, session, provider, model_name, model_source), media_type="text/event-stream")
