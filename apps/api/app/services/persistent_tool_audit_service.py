@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.encoding import repair_mojibake
 from app.models.domain import ToolAuditLogModel
 
 
@@ -13,11 +14,11 @@ def _serialize(item: ToolAuditLogModel) -> dict[str, Any]:
         "trace_id": item.trace_id,
         "agent_id": item.agent_id,
         "tool_name": item.tool_name,
-        "input": item.input_json or {},
-        "output": item.output_json or {},
+        "input": repair_mojibake(item.input_json or {}),
+        "output": repair_mojibake(item.output_json or {}),
         "status": item.status,
         "latency_ms": item.latency_ms,
-        "error_message": item.error_message,
+        "error_message": repair_mojibake(item.error_message),
         "tenant_id": item.tenant_id,
         "created_at": item.created_at.isoformat() if item.created_at else None,
         "source": "database",
@@ -30,11 +31,11 @@ class PersistentToolAuditService:
             trace_id=str(payload.get("trace_id") or "unknown"),
             agent_id=payload.get("agent_id"),
             tool_name=str(payload.get("tool_name") or "unknown"),
-            input_json=payload.get("input") if isinstance(payload.get("input"), dict) else {},
-            output_json=payload.get("output") if isinstance(payload.get("output"), dict) else {},
+            input_json=repair_mojibake(payload.get("input")) if isinstance(payload.get("input"), dict) else {},
+            output_json=repair_mojibake(payload.get("output")) if isinstance(payload.get("output"), dict) else {},
             status=str(payload.get("status") or "success"),
             latency_ms=int(payload.get("latency_ms") or 0),
-            error_message=payload.get("error_message"),
+            error_message=repair_mojibake(payload.get("error_message")),
             tenant_id=tenant_id,
         )
         session.add(item)
