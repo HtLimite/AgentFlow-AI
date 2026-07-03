@@ -58,12 +58,12 @@ function Get-Count {
   return $Value.Count
 }
 
-Write-Host "[1/15] Health"
+Write-Host "[1/16] Health"
 $health = Invoke-AgentFlowJson -Method GET -Path "/health"
 Assert-True ($health.status -eq "ok") "health check failed"
 Write-Host "PASS status=$($health.status) service=$($health.service)"
 
-Write-Host "`n[2/15] Full system health"
+Write-Host "`n[2/16] Full system health"
 $full = Invoke-AgentFlowJson -Method GET -Path "/api/system/health/full"
 Assert-True ($full.status -eq "ok") "full system health failed"
 Assert-True ($full.modules.react_flow_canvas -eq $true) "react flow canvas module missing"
@@ -73,7 +73,7 @@ Assert-True ($full.modules.rerank -eq $true) "rerank module missing"
 Assert-True ($full.modules.judge -eq $true) "judge module missing"
 Write-Host "PASS tools=$($full.counts.tools) eval_datasets=$($full.counts.eval_datasets) workflow_nodes=$($full.counts.workflow_nodes)"
 
-Write-Host "`n[3/15] Persistence health"
+Write-Host "`n[3/16] Persistence health"
 $persistence = Invoke-AgentFlowJson -Method GET -Path "/api/system/persistence/health"
 Assert-True ($persistence.status -eq "ok") "persistence health failed"
 Assert-True ($persistence.mode -eq "persistent") "not running in persistent mode"
@@ -81,14 +81,14 @@ Assert-True ($persistence.database -eq "connected") "database is not connected"
 Assert-True ($persistence.tables_checked -contains "tool_audit_log") "tool_audit_log table missing"
 Write-Host "PASS mode=$($persistence.mode) database=$($persistence.database) tables=$($persistence.tables_checked.Count)"
 
-Write-Host "`n[4/15] RBAC context"
+Write-Host "`n[4/16] RBAC context"
 $rbacHeaders = @{ "X-Tenant-Id" = "1"; "X-User-Role" = "admin" }
 $rbac = Invoke-AgentFlowJson -Method GET -Path "/api/system/rbac/context" -Headers $rbacHeaders
 Assert-True ($rbac.status -eq "ok") "rbac context failed"
 Assert-True ($rbac.context.permissions.Count -ge 1) "rbac permissions empty"
 Write-Host "PASS tenant=$($rbac.context.tenant_id) role=$($rbac.context.role)"
 
-Write-Host "`n[5/15] Model runtime health"
+Write-Host "`n[5/16] Model runtime health"
 $runtime = Invoke-AgentFlowJson -Method GET -Path "/api/system/model-runtime/health"
 Assert-True ($runtime.status -eq "ok") "model runtime health failed"
 Assert-True ($runtime.capabilities.local_fallback -eq $true) "local fallback missing"
@@ -96,17 +96,24 @@ Assert-True ($runtime.capabilities.local_rerank -eq $true) "local rerank missing
 Assert-True ($runtime.capabilities.heuristic_judge -eq $true) "heuristic judge missing"
 Write-Host "PASS chat_models=$($runtime.counts.chat_models) embedding_models=$($runtime.counts.embedding_models) rerank_models=$($runtime.counts.rerank_models)"
 
-Write-Host "`n[6/15] Dashboard summary"
+Write-Host "`n[6/16] Dashboard summary"
 $dashboard = Invoke-AgentFlowJson -Method GET -Path "/api/dashboard/summary"
 Assert-True ($dashboard.calls_today -ge 0) "dashboard summary failed"
 Write-Host "PASS calls=$($dashboard.calls_today) tokens=$($dashboard.tokens_today) source=$($dashboard.source)"
 
-Write-Host "`n[7/15] Knowledge bases"
+Write-Host "`n[7/16] Project diagnosis demo"
+$diagnosis = Invoke-AgentFlowJson -Method GET -Path "/api/project-diagnosis/demo"
+Assert-True ($diagnosis.project_name -eq "AgentFlow-AI") "diagnosis demo returned wrong project"
+Assert-True ($diagnosis.signals.Count -ge 1) "diagnosis returned no signals"
+Assert-True ($diagnosis.actions.Count -ge 1) "diagnosis returned no actions"
+Write-Host "PASS severity=$($diagnosis.severity) score=$($diagnosis.readiness_score) signals=$($diagnosis.signals.Count)"
+
+Write-Host "`n[8/16] Knowledge bases"
 $bases = Invoke-AgentFlowJson -Method GET -Path "/api/knowledge-bases"
 Assert-True ($bases.Count -ge 1) "knowledge base list is empty"
 Write-Host "PASS count=$($bases.Count) first_id=$($bases[0].id) documents=$($bases[0].document_count) chunks=$($bases[0].chunk_count)"
 
-Write-Host "`n[8/15] Knowledge query"
+Write-Host "`n[9/16] Knowledge query"
 $knowledge = Invoke-AgentFlowJson -Method POST -Path "/api/knowledge-bases/1/query" -Body '{"question":"报销流程是什么？","top_k":3}'
 $citationCount = Get-Count $knowledge.citations
 Assert-True ($null -ne $knowledge.answer -and $knowledge.answer.Length -gt 0) "knowledge query returned empty answer"
@@ -117,43 +124,43 @@ if ($citationCount -eq 0) {
   Write-Host "PASS citations=$citationCount strategy=$($knowledge.debug.strategy) mode=grounded_answer"
 }
 
-Write-Host "`n[9/15] Tool list"
+Write-Host "`n[10/16] Tool list"
 $tools = Invoke-AgentFlowJson -Method GET -Path "/api/tools"
 Assert-True ($tools.Count -ge 4) "tool list is incomplete"
 Write-Host "PASS count=$($tools.Count)"
 
-Write-Host "`n[10/15] Agent chat with persistent audit"
+Write-Host "`n[11/16] Agent chat with persistent audit"
 $agent = Invoke-AgentFlowJson -Method POST -Path "/api/agents/1/chat" -Headers $rbacHeaders -Body '{"question":"请调用知识库工具回答报销流程是什么？"}'
 Assert-True ($agent.tool_calls.Count -ge 1) "agent chat returned no tool calls"
 Assert-True ($agent.trace_id.Length -gt 0) "agent trace_id is empty"
 Assert-True ($agent.tool_calls[0].persistent_audit_id -ge 1) "persistent audit id missing"
 Write-Host "PASS agent_id=$($agent.agent_id) trace=$($agent.trace_id) persistent_audit_id=$($agent.tool_calls[0].persistent_audit_id)"
 
-Write-Host "`n[11/15] Tool audit summary"
+Write-Host "`n[12/16] Tool audit summary"
 $auditSummary = Invoke-AgentFlowJson -Method GET -Path "/api/audit/tools/summary"
 Assert-True ($auditSummary.total_calls -ge 1) "audit summary is empty"
 Assert-True ($auditSummary.source -eq "database") "audit summary is not database backed"
 Write-Host "PASS total=$($auditSummary.total_calls) success_rate=$($auditSummary.success_rate) source=$($auditSummary.source)"
 
-Write-Host "`n[12/15] Tool audit records"
+Write-Host "`n[13/16] Tool audit records"
 $auditRecords = Invoke-AgentFlowJson -Method GET -Path "/api/audit/tools"
 Assert-True ($auditRecords.Count -ge 1) "audit records are empty"
 Assert-True ($auditRecords[0].source -eq "database") "audit records are not database backed"
 Write-Host "PASS count=$($auditRecords.Count) first_tool=$($auditRecords[0].tool_name)"
 
-Write-Host "`n[13/15] Prompt list"
+Write-Host "`n[14/16] Prompt list"
 $prompts = Invoke-AgentFlowJson -Method GET -Path "/api/prompts"
 Assert-True ($prompts.Count -ge 1) "prompt list is empty"
 Write-Host "PASS count=$($prompts.Count)"
 
-Write-Host "`n[14/15] Workflow run"
+Write-Host "`n[15/16] Workflow run"
 $workflow = Invoke-AgentFlowJson -Method POST -Path "/api/workflows/1/run" -Body '{"input":{"question":"报销流程是什么？"}}'
 Assert-True ($workflow.status -eq "success") "workflow run failed"
 Write-Host "PASS status=$($workflow.status) node_runs=$($workflow.node_runs.Count) source=$($workflow.source)"
 
-Write-Host "`n[15/15] Eval run"
+Write-Host "`n[16/16] Eval run"
 $eval = Invoke-AgentFlowJson -Method POST -Path "/api/evals/runs" -Body '{"dataset_id":1,"model":"demo-model"}'
 Assert-True ($eval.status -eq "completed") "eval run did not complete"
 Write-Host "PASS id=$($eval.id) status=$($eval.status) score=$($eval.score) cases=$($eval.cases.Count) source=$($eval.source)"
 
-Write-Host "`nAgentFlow-AI V5 runtime verification completed."
+Write-Host "`nAgentFlow-AI V6 diagnosis verification completed."

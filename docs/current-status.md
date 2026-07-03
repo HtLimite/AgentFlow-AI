@@ -4,7 +4,7 @@
 
 ## 一句话状态
 
-AgentFlow-AI 当前处于 **V5 页面闭环增强态 / 本地持久化演示态**：在 V5 真实模型运行时增强基础上，继续补齐模型供应商与模型的完整管理闭环、Chat SSE 流式前端入口、Prompt 创建/更新/版本查看、工具审计前端筛选和火山方舟多 Plan 预设；没有真实 API Key 时仍保留本地 fallback。
+AgentFlow-AI 当前处于 **V6 项目诊断闭环态 / 本地持久化演示态**：在 V5 页面闭环增强基础上，新增项目诊断与部署排错闭环，把项目从“功能展示集合”收束到一个真实可感知场景：输入启动日志、关键配置片段和服务状态，输出阻塞原因、修复动作、验收命令和诊断报告；没有真实 API Key 时仍保留本地 fallback。
 
 ## 当前可验证能力
 
@@ -18,6 +18,7 @@ AgentFlow-AI 当前处于 **V5 页面闭环增强态 / 本地持久化演示态*
 | Demo Route | 已可用 | `/demo` 演示动线页 |
 | Showcase | 已可用 | `/showcase` 作品展示页 |
 | Dashboard | 已可用 | `/dashboard` 页面、`GET /api/dashboard/summary` |
+| Project Diagnosis | 已新增可用闭环 | `/diagnosis`、`GET /api/project-diagnosis/demo`、`POST /api/project-diagnosis/analyze` |
 | Settings | 已补齐闭环 | `/settings` 供应商/模型新增、编辑、启停、删除、连接测试、密钥脱敏 |
 | Model Provider CRUD | 已补齐 | `GET/POST/PUT/DELETE /api/model-providers` |
 | AI Model CRUD | 已补齐 | `GET/POST/PUT/DELETE /api/model-providers/models` |
@@ -32,7 +33,7 @@ AgentFlow-AI 当前处于 **V5 页面闭环增强态 / 本地持久化演示态*
 | Prompt | 已补齐页面管理 | `/prompts` 创建、更新、版本查看、变量渲染 |
 | Workflow | 已升级为 React Flow 画布基础版 | `/workflows` |
 | Eval Compare / Judge | 已升级为 Judge 协议基础版 | `/evals`、`POST /api/evals/runs` |
-| Local Verification | 已升级为 15 步 V5 验收 | `scripts\verify-local.cmd` 或 `bash scripts/verify-local.sh` |
+| Local Verification | 已升级为 16 步 V6 验收 | `scripts\verify-local.cmd` 或 `bash scripts/verify-local.sh` |
 | Web Build | 已可验证 | `pnpm --filter @agentflow/web build` |
 | API Test | 已可验证 | `cd apps/api && uv run python -m pytest` |
 
@@ -65,6 +66,7 @@ Agent Plan: https://ark.cn-beijing.volces.com/api/plan/v3
 
 这些不要在面试或 README 中说成“已经生产可用”：
 
+- 项目诊断当前是“粘贴日志 / 配置 / 服务状态”的本地规则闭环，还没有自动读取真实 GitHub 仓库、Docker API 和服务器日志。
 - 真实 Rerank Provider 接入，目前是本地 rerank 基础链路。
 - 真正的 LLM-as-Judge Provider 调用，目前是兼容 Judge 协议的 heuristic_judge。
 - RBAC 对全部业务路由的强制鉴权。
@@ -79,7 +81,8 @@ Agent Plan: https://ark.cn-beijing.volces.com/api/plan/v3
 
 ```txt
 这是一个企业级 AI Agent / RAG / Workflow 平台的本地可演示工程增强版。
-当前已跑通模型配置完整管理、真实 OpenAI-Compatible Chat 调用、Provider 流式输出基础链路、Provider Embedding 接入、RAG + pgvector SQL + Rerank、Agent 工具调用、工具调用审计持久化与前端筛选、React Flow 工作流画布、Prompt 创建/版本、Eval Judge 协议、Dashboard、Docker 基础设施和 15 步本地验收。
+当前已跑通模型配置完整管理、真实 OpenAI-Compatible Chat 调用、Provider 流式输出基础链路、Provider Embedding 接入、RAG + pgvector SQL + Rerank、项目诊断与部署排错、Agent 工具调用、工具调用审计持久化与前端筛选、React Flow 工作流画布、Prompt 创建/版本、Eval Judge 协议、Dashboard、Docker 基础设施和 16 步本地验收。
+其中 /diagnosis 是最贴近真实使用的演示入口：基于日志、配置片段和服务状态输出问题信号、修复动作、验收命令和诊断报告。
 没有真实 API Key 时系统会回退到本地 fallback，保证项目可以稳定演示。
 ```
 
@@ -88,5 +91,6 @@ Agent Plan: https://ark.cn-beijing.volces.com/api/plan/v3
 ```txt
 已经是完整生产级平台。
 已经实现所有生产级权限系统和完整安全策略。
+项目诊断已经能自动读取所有服务器和 Docker 日志。
 Rerank 和 LLM-as-Judge 都已经是真实模型在线调用。
 ```

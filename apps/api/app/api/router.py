@@ -8,6 +8,7 @@ from app.api import (
     routes_evals,
     routes_knowledge,
     routes_models,
+    routes_project_diagnosis,
     routes_prompts,
     routes_system,
     routes_tools,
@@ -26,3 +27,4 @@ api_router.include_router(routes_audit.router, prefix="/audit", tags=["Audit"])
 api_router.include_router(routes_workflows.router, prefix="/workflows", tags=["Workflows"])
 api_router.include_router(routes_prompts.router, prefix="/prompts", tags=["Prompts"])
 api_router.include_router(routes_evals.router, prefix="/evals", tags=["Evaluations"])
+api_router.include_router(routes_project_diagnosis.router, prefix="/project-diagnosis", tags=["Project Diagnosis"])
