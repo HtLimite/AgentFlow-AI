@@ -45,6 +45,16 @@ class AIModelCreate(BaseModel):
     enabled: bool = True
 
 
+class AIModelUpdate(BaseModel):
+    provider_id: int | None = None
+    model_name: str | None = Field(default=None, min_length=1, max_length=128)
+    model_type: ModelType | None = None
+    context_window: int | None = None
+    input_price: Decimal | None = None
+    output_price: Decimal | None = None
+    enabled: bool | None = None
+
+
 class AIModelRead(BaseModel):
     id: int
     provider_id: int
