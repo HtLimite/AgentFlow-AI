@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +10,27 @@ from app.services.document_parser import document_parser
 from app.services.embedding_service import embedding_service
 from app.services.text_cleaner import clean_extracted_text, make_snippet
 from app.services.vector_service import vector_service
+
+CJK_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
+WORD_RE = re.compile(r"[a-zA-Z0-9_]{2,}")
+MIN_RELEVANCE_SCORE = 0.18
+STOP_TERMS = {"什么", "怎么", "如何", "是否", "the", "and"}
+
+
+def _query_terms(text: str) -> set[str]:
+    cleaned = clean_extracted_text(text).lower()
+    terms = set(WORD_RE.findall(cleaned))
+    terms.update(CJK_RE.findall(cleaned))
+    return {term for term in terms if term not in STOP_TERMS}
+
+
+def _lexical_score(question: str, content: str) -> float:
+    terms = _query_terms(question)
+    if not terms:
+        return 0.0
+    lower_content = clean_extracted_text(content).lower()
+    hits = sum(1 for term in terms if term in lower_content)
+    return hits / len(terms)
 
 
 class PersistentKnowledgeService:
@@ -21,8 +44,8 @@ class PersistentKnowledgeService:
                 func.count(func.distinct(KnowledgeDocument.id)).label("document_count"),
                 func.count(KnowledgeChunk.id).label("chunk_count"),
             )
-            .outerjoin(KnowledgeDocument, KnowledgeDocument.kb_id == KnowledgeBase.id)
-            .outerjoin(KnowledgeChunk, KnowledgeChunk.kb_id == KnowledgeBase.id)
+            .outerjoin(KnowledgeDocument, (KnowledgeDocument.kb_id == KnowledgeBase.id) & (KnowledgeDocument.parse_status != "removed"))
+            .outerjoin(KnowledgeChunk, KnowledgeChunk.document_id == KnowledgeDocument.id)
             .group_by(KnowledgeBase.id)
             .order_by(KnowledgeBase.id.desc())
         )
@@ -37,7 +60,9 @@ class PersistentKnowledgeService:
 
     async def list_documents(self, session: AsyncSession, kb_id: int) -> list[dict[str, object]]:
         result = await session.scalars(
-            select(KnowledgeDocument).where(KnowledgeDocument.kb_id == kb_id).order_by(KnowledgeDocument.id.desc())
+            select(KnowledgeDocument)
+            .where(KnowledgeDocument.kb_id == kb_id, KnowledgeDocument.parse_status != "removed")
+            .order_by(KnowledgeDocument.id.desc())
         )
         return [self._serialize_document(item) for item in result.all()]
 
@@ -79,13 +104,21 @@ class PersistentKnowledgeService:
         await session.refresh(document)
         return self._serialize_document(document)
 
+    async def remove_document(self, session: AsyncSession, kb_id: int, document_id: int) -> bool:
+        document = await session.get(KnowledgeDocument, document_id)
+        if document is None or document.kb_id != kb_id or document.parse_status == "removed":
+            return False
+        document.parse_status = "removed"
+        document.chunk_count = 0
+        await session.commit()
+        return True
+
     async def search(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> list[dict[str, object]]:
         query_vector = await embedding_service.embed(question)
-        keywords = [part for part in clean_extracted_text(question).lower().split() if part]
         result = await session.execute(
             select(KnowledgeChunk, KnowledgeDocument.filename)
             .join(KnowledgeDocument, KnowledgeDocument.id == KnowledgeChunk.document_id)
-            .where(KnowledgeChunk.kb_id == kb_id)
+            .where(KnowledgeChunk.kb_id == kb_id, KnowledgeDocument.parse_status == "ready")
             .order_by(KnowledgeChunk.id.desc())
             .limit(200)
         )
@@ -94,9 +127,11 @@ class PersistentKnowledgeService:
             metadata = chunk.metadata_json or {}
             embedding = metadata.get("embedding", []) if isinstance(metadata, dict) else []
             content = clean_extracted_text(chunk.content)
-            keyword_score = sum(1 for keyword in keywords if keyword in content.lower()) * 0.03
-            vector_score = vector_service.cosine(query_vector, embedding)
-            score = round(max(0.0, vector_score) + keyword_score + 0.6, 4)
+            lexical_score = _lexical_score(question, content)
+            vector_score = max(0.0, vector_service.cosine(query_vector, embedding))
+            score = round(lexical_score * 0.75 + vector_score * 0.25, 4)
+            if score < MIN_RELEVANCE_SCORE:
+                continue
             rows.append(
                 {
                     "chunk_index": chunk.chunk_index,
@@ -104,6 +139,8 @@ class PersistentKnowledgeService:
                     "token_count": chunk.token_count,
                     "document": filename,
                     "score": score,
+                    "lexical_score": round(lexical_score, 4),
+                    "vector_score": round(vector_score, 4),
                 }
             )
         return sorted(rows, key=lambda row: float(row["score"]), reverse=True)[:top_k]
@@ -111,12 +148,16 @@ class PersistentKnowledgeService:
     async def answer(self, session: AsyncSession, kb_id: int, question: str, top_k: int = 5) -> dict[str, object]:
         chunks = await self.search(session, kb_id, question, top_k)
         if not chunks:
-            return {"answer": "知识库中没有找到相关信息。", "citations": [], "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_vector"}}
+            return {
+                "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请确认已上传对应文档，或换一个知识库后再问。",
+                "citations": [],
+                "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_hybrid", "min_relevance_score": MIN_RELEVANCE_SCORE},
+            }
         evidence = "\n".join(f"- {make_snippet(str(chunk['content']), 220)}" for chunk in chunks)
         return {
-            "answer": f"根据数据库知识库命中片段，可回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}",
+            "answer": f"根据知识库命中片段回答：{clean_extracted_text(question)}\n\n依据：\n{evidence}",
             "citations": chunks,
-            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_vector"},
+            "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_hybrid", "min_relevance_score": MIN_RELEVANCE_SCORE},
         }
 
     async def _ensure_default_base(self, session: AsyncSession) -> None:
