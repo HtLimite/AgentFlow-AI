@@ -1,5 +1,5 @@
-import { WorkflowRunner } from "@/components/workflows/workflow-runner";
+import { WorkflowCanvas } from "@/components/workflows/workflow-canvas";
 
 export default function WorkflowsPage() {
-  return <WorkflowRunner />;
+  return <WorkflowCanvas />;
 }
