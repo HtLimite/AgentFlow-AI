@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.domain import EvalCaseModel, EvalDatasetModel, EvalRunModel
-from app.services.eval_service import eval_service
+from app.services.eval_service import EvalCase, eval_service
 
 
 class PersistentEvalService:
@@ -25,8 +25,10 @@ class PersistentEvalService:
     async def run(self, session: AsyncSession, dataset_id: int, model: str, cases: list[str] | None = None) -> dict[str, object]:
         if cases is None:
             result = await session.scalars(select(EvalCaseModel).where(EvalCaseModel.dataset_id == dataset_id).order_by(EvalCaseModel.id.asc()))
-            cases = [item.question for item in result.all()]
-        data = eval_service.run(dataset_id=dataset_id, model=model, cases=cases)
+            case_models = result.all()
+            data = await self._run_dataset_cases(dataset_id, model, case_models)
+        else:
+            data = await eval_service.run(dataset_id=dataset_id, model=model, cases=cases)
         run = EvalRunModel(
             dataset_id=dataset_id,
             model=model,
@@ -41,6 +43,32 @@ class PersistentEvalService:
         data["source"] = "database"
         return data
 
+    async def _run_dataset_cases(self, dataset_id: int, model: str, case_models: list[EvalCaseModel]) -> dict[str, object]:
+        original = eval_service._datasets.get(dataset_id)
+        eval_service._datasets[dataset_id] = type(original)(
+            id=dataset_id,
+            name=original.name if original else "数据库评测集",
+            description=original.description if original else "来自数据库的评测集",
+            cases=[
+                EvalCase(
+                    question=item.question,
+                    expected_answer=item.expected_answer or "",
+                    scoring_criteria=item.scoring_criteria or "",
+                )
+                for item in case_models
+            ],
+        ) if original else eval_service._datasets.get(dataset_id, None) or __import__("app.services.eval_service", fromlist=["EvalDataset"]).EvalDataset(
+            id=dataset_id,
+            name="数据库评测集",
+            description="来自数据库的评测集",
+            cases=[EvalCase(item.question, item.expected_answer or "", item.scoring_criteria or "") for item in case_models],
+        )
+        try:
+            return await eval_service.run(dataset_id=dataset_id, model=model)
+        finally:
+            if original is not None:
+                eval_service._datasets[dataset_id] = original
+
     async def _ensure_default_dataset(self, session: AsyncSession) -> None:
         existing = await session.scalar(select(EvalDatasetModel.id).limit(1))
         if existing:
@@ -50,8 +78,8 @@ class PersistentEvalService:
         await session.flush()
         session.add_all(
             [
-                EvalCaseModel(dataset_id=1, question="报销流程是什么？", expected_answer="提交发票和报销单，负责人审批，财务复核付款。", scoring_criteria="是否包含提交、审批、财务复核"),
-                EvalCaseModel(dataset_id=1, question="如何查询售后状态？", expected_answer="通过订单或工单信息查询售后状态。", scoring_criteria="是否说明订单或工单维度"),
+                EvalCaseModel(dataset_id=1, question="报销流程是什么？", expected_answer="提交发票和报销单，负责人审批，财务复核付款。", scoring_criteria="提交 审批 财务复核"),
+                EvalCaseModel(dataset_id=1, question="如何查询售后状态？", expected_answer="通过订单或工单信息查询售后状态。", scoring_criteria="订单 工单 售后状态"),
             ]
         )
         await session.commit()
