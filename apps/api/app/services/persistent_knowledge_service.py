@@ -34,7 +34,7 @@ def _lexical_score(question: str, content: str) -> float:
 
 
 class PersistentKnowledgeService:
-    """Database-backed knowledge service with the same response shape as the demo service."""
+    """Database-backed knowledge service with the same response shape as the local fallback service."""
 
     async def list_bases(self, session: AsyncSession) -> list[dict[str, object]]:
         await self._ensure_default_base(session)
@@ -149,7 +149,7 @@ class PersistentKnowledgeService:
         chunks = await self.search(session, kb_id, question, top_k)
         if not chunks:
             return {
-                "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请确认已上传对应文档，或换一个知识库后再问。",
+                "answer": f"知识库中没有找到与“{clean_extracted_text(question)}”直接相关的内容。请先上传真实文档，或换一个知识库后再问。",
                 "citations": [],
                 "debug": {"kb_id": kb_id, "top_k": top_k, "strategy": "database_hybrid", "min_relevance_score": MIN_RELEVANCE_SCORE},
             }
@@ -164,23 +164,7 @@ class PersistentKnowledgeService:
         existing = await session.scalar(select(KnowledgeBase.id).limit(1))
         if existing:
             return
-        default = KnowledgeBase(id=1, name="企业制度知识库", description="默认演示知识库", visibility="private")
-        session.add(default)
-        await session.flush()
-        document = KnowledgeDocument(kb_id=1, filename="demo-policy.md", file_type="md", parse_status="ready", chunk_count=1)
-        session.add(document)
-        await session.flush()
-        content = "报销流程：员工提交发票和报销单，直属负责人审批，财务复核后付款。"
-        session.add(
-            KnowledgeChunk(
-                kb_id=1,
-                document_id=document.id,
-                content=content,
-                chunk_index=0,
-                token_count=32,
-                metadata_json={"document": "demo-policy.md", "embedding": await embedding_service.embed(content), "source": "seed"},
-            )
-        )
+        session.add(KnowledgeBase(id=1, name="默认知识库", description="空知识库；请上传真实文档后再查询。", visibility="private"))
         await session.commit()
 
     def _serialize_base(self, item: KnowledgeBase, document_count: int, chunk_count: int) -> dict[str, object]:
