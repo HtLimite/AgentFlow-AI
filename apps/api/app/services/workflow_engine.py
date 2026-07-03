@@ -1,5 +1,7 @@
 from typing import Any
 
+import httpx
+
 from app.schemas.workflow import WorkflowDefinition, WorkflowNode
 from app.services.rag_service import rag_service
 
@@ -31,9 +33,10 @@ class WorkflowEngine:
         while current:
             node = node_map[current]
             output = await self._run_node(node, context)
+            status = "success" if output.get("status") not in {"failed", "skipped"} else str(output.get("status"))
             context[node.id] = output
             context["last"] = output
-            node_runs.append({"node_id": node.id, "node_type": node.type, "status": "success", "input": context.get("input"), "output": output})
+            node_runs.append({"node_id": node.id, "node_type": node.type, "status": status, "input": context.get("input"), "output": output})
             if node.type == "end":
                 break
             current = next_map.get(node.id)
@@ -56,11 +59,27 @@ class WorkflowEngine:
             return await rag_service.answer(kb_id=kb_id, question=question, top_k=top_k)
         if node.type == "llm":
             last = context.get("last", {})
-            return {"answer": f"工作流 LLM 节点已根据上游结果生成回答：{last.get('answer', question)}"}
+            if isinstance(last, dict) and last.get("answer"):
+                return {
+                    "answer": str(last["answer"]),
+                    "source": "upstream_context",
+                    "warning": "当前工作流 LLM 节点未直接绑定模型供应商，已透传上游真实检索结果。",
+                }
+            return {"answer": question, "source": "input", "warning": "当前工作流 LLM 节点未直接绑定模型供应商。"}
         if node.type == "condition":
-            return {"matched": True, "branch": "true"}
+            key = str(node.data.get("key", ""))
+            expected = node.data.get("equals")
+            actual = context.get("input", {}).get(key) if key else context.get("last")
+            matched = actual == expected if key else bool(actual)
+            return {"matched": matched, "branch": "true" if matched else "false", "actual": actual, "expected": expected}
         if node.type == "http":
-            return {"status_code": 200, "body": {"message": "demo"}}
+            url = str(node.data.get("url", "")).strip()
+            method = str(node.data.get("method", "GET")).upper()
+            if not url:
+                return {"status": "skipped", "reason": "HTTP 节点未配置 url"}
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                response = await client.request(method, url)
+            return {"status_code": response.status_code, "ok": response.is_success, "body": response.text[:2000], "source": "http"}
         if node.type == "end":
             return dict(context.get("last", {}))
         raise ValueError(f"Unsupported node type: {node.type}")
