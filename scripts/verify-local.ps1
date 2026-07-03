@@ -77,7 +77,7 @@ Write-Host "PASS calls=$($dashboard.calls_today) tokens=$($dashboard.tokens_toda
 Write-Host "`n[5/13] Knowledge bases"
 $bases = Invoke-AgentFlowJson -Method GET -Path "/api/knowledge-bases"
 Assert-True ($bases.Count -ge 1) "knowledge base list is empty"
-Write-Host "PASS count=$($bases.Count) first=$($bases[0].name)"
+Write-Host "PASS count=$($bases.Count) first_id=$($bases[0].id) documents=$($bases[0].document_count) chunks=$($bases[0].chunk_count)"
 
 Write-Host "`n[6/13] Knowledge query"
 $knowledge = Invoke-AgentFlowJson -Method POST -Path "/api/knowledge-bases/1/query" -Body '{"question":"报销流程是什么？","top_k":3}'
