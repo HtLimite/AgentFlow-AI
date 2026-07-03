@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from itertools import count
 from typing import Any
 
+from app.core.encoding import repair_mojibake
+
 
 @dataclass
 class ToolAuditRecord:
@@ -39,11 +41,11 @@ class ToolAuditService:
             trace_id=trace_id,
             agent_id=agent_id,
             tool_name=tool_name,
-            input=input_data,
-            output=output_data,
+            input=repair_mojibake(input_data),
+            output=repair_mojibake(output_data),
             status=status,
             latency_ms=latency_ms,
-            error_message=error_message,
+            error_message=repair_mojibake(error_message),
         )
         self._records.append(item)
         return self._serialize(item)
@@ -82,11 +84,11 @@ class ToolAuditService:
             "trace_id": item.trace_id,
             "agent_id": item.agent_id,
             "tool_name": item.tool_name,
-            "input": item.input,
-            "output": item.output,
+            "input": repair_mojibake(item.input),
+            "output": repair_mojibake(item.output),
             "status": item.status,
             "latency_ms": item.latency_ms,
-            "error_message": item.error_message,
+            "error_message": repair_mojibake(item.error_message),
             "created_at": item.created_at,
         }
 
