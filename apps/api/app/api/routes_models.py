@@ -5,14 +5,24 @@ from app.core.database import get_db
 from app.crud.model_provider import (
     create_ai_model,
     create_model_provider,
+    delete_ai_model,
     delete_model_provider,
+    get_ai_model,
     get_model_provider,
     get_model_provider_entity,
     list_ai_models,
     list_model_providers,
+    update_ai_model,
     update_model_provider,
 )
-from app.schemas.model_provider import AIModelCreate, AIModelRead, ModelProviderCreate, ModelProviderRead, ModelProviderUpdate
+from app.schemas.model_provider import (
+    AIModelCreate,
+    AIModelRead,
+    AIModelUpdate,
+    ModelProviderCreate,
+    ModelProviderRead,
+    ModelProviderUpdate,
+)
 from app.services.provider_adapter import provider_adapter
 
 router = APIRouter()
@@ -39,6 +49,29 @@ async def create_model(payload: AIModelCreate, session: AsyncSession = Depends(g
     if model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
     return model
+
+
+@router.get("/models/{model_id}", response_model=AIModelRead)
+async def read_model(model_id: int, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+    model = await get_ai_model(session, model_id)
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI model not found")
+    return model
+
+
+@router.put("/models/{model_id}", response_model=AIModelRead)
+async def update_model(model_id: int, payload: AIModelUpdate, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+    model = await update_ai_model(session, model_id, payload)
+    if model is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI model or model provider not found")
+    return model
+
+
+@router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_model(model_id: int, session: AsyncSession = Depends(get_db)) -> None:
+    deleted = await delete_ai_model(session, model_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI model not found")
 
 
 @router.get("/{provider_id}", response_model=ModelProviderRead)

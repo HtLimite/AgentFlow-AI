@@ -3,7 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret
 from app.models.domain import AIModel, ModelProvider
-from app.schemas.model_provider import AIModelCreate, AIModelRead, ModelProviderCreate, ModelProviderRead, ModelProviderUpdate
+from app.schemas.model_provider import (
+    AIModelCreate,
+    AIModelRead,
+    AIModelUpdate,
+    ModelProviderCreate,
+    ModelProviderRead,
+    ModelProviderUpdate,
+)
 
 
 def _read_provider(provider: ModelProvider) -> ModelProviderRead:
@@ -120,6 +127,49 @@ async def create_ai_model(session: AsyncSession, payload: AIModelCreate) -> AIMo
     await session.commit()
     await session.refresh(model)
     return _read_model(model)
+
+
+async def get_ai_model(session: AsyncSession, model_id: int) -> AIModelRead | None:
+    model = await session.get(AIModel, model_id)
+    return _read_model(model) if model else None
+
+
+async def update_ai_model(session: AsyncSession, model_id: int, payload: AIModelUpdate) -> AIModelRead | None:
+    model = await session.get(AIModel, model_id)
+    if model is None:
+        return None
+
+    update_data = payload.model_dump(exclude_unset=True)
+    if "provider_id" in update_data and update_data["provider_id"] is not None:
+        provider = await session.get(ModelProvider, update_data["provider_id"])
+        if provider is None:
+            return None
+        model.provider_id = update_data["provider_id"]
+    if "model_name" in update_data and update_data["model_name"] is not None:
+        model.model_name = update_data["model_name"]
+    if "model_type" in update_data and update_data["model_type"] is not None:
+        model.model_type = update_data["model_type"]
+    if "context_window" in update_data:
+        model.context_window = update_data["context_window"]
+    if "input_price" in update_data:
+        model.input_price = update_data["input_price"]
+    if "output_price" in update_data:
+        model.output_price = update_data["output_price"]
+    if "enabled" in update_data and update_data["enabled"] is not None:
+        model.enabled = update_data["enabled"]
+
+    await session.commit()
+    await session.refresh(model)
+    return _read_model(model)
+
+
+async def delete_ai_model(session: AsyncSession, model_id: int) -> bool:
+    model = await session.get(AIModel, model_id)
+    if model is None:
+        return False
+    await session.delete(model)
+    await session.commit()
+    return True
 
 
 async def list_ai_models(session: AsyncSession) -> list[AIModelRead]:
