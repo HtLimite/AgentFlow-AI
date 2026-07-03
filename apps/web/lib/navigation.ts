@@ -5,6 +5,7 @@ export const navigationItems = [
   { href: "/knowledge", label: "知识库 RAG", icon: "▣" },
   { href: "/agents", label: "Agent", icon: "◈" },
   { href: "/workflows", label: "工作流", icon: "⌁" },
+  { href: "/audit", label: "工具审计", icon: "A" },
   { href: "/prompts", label: "Prompt", icon: "#" },
   { href: "/evals", label: "评测集", icon: "✓" },
   { href: "/verification", label: "验收中心", icon: "V" },
