@@ -154,7 +154,9 @@ class ProjectDiagnosisService:
     def _is_placeholder_line(self, line: str) -> bool:
         normalized = re.sub(r"\s+", " ", line.strip().lower())
         compact = normalized.replace(" ", "")
-        if normalized in {item.lower() for item in PLACEHOLDER_LINES} or compact in {item.lower().replace(" ", "") for item in PLACEHOLDER_LINES}:
+        placeholder_normalized = {item.lower() for item in PLACEHOLDER_LINES}
+        placeholder_compact = {item.lower().replace(" ", "") for item in PLACEHOLDER_LINES}
+        if normalized in placeholder_normalized or compact in placeholder_compact:
             return True
         if len(compact) <= 14 and compact.endswith(("报错", "日志", "状态", "输出")):
             return True
@@ -167,7 +169,7 @@ class ProjectDiagnosisService:
                 continue
             path = str(item.get("path") or "").strip()
             content = self._clean_input_text(str(item.get("content") or ""))
-            if not path and not content:
+            if not content:
                 continue
             cleaned.append({"path": path or "diagnosis-notes.txt", "content": content})
         return cleaned
