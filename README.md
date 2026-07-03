@@ -1,14 +1,14 @@
 # AgentFlow-AI
 
-企业级 AI Agent 工作流与知识库平台，面向企业知识库、客服运营、内部提效和流程自动化场景。
+企业级 AI Agent 工作流与知识库平台，面向企业知识库、客服运营、内部提效、流程自动化和开发者项目诊断场景。
 
 ```txt
-模型接入 → 文档解析 → 知识库 RAG → Agent 工具调用 → 工作流画布 → 工具审计 → Prompt 管理 → 效果评测 → Docker 部署
+模型接入 → 文档解析 → 知识库 RAG → 项目诊断 → Agent 工具调用 → 工作流画布 → 工具审计 → Prompt 管理 → 效果评测 → Docker 部署
 ```
 
 ## 当前状态
 
-当前项目已推进到 **V4 工程增强态 / 本地持久化演示态**。
+当前项目已推进到 **V6 项目诊断闭环态 / 本地持久化演示态**。
 
 已经可以本地验证：
 
@@ -16,11 +16,12 @@
 - Docker 基础设施：PostgreSQL、Redis、MinIO。
 - 本地 uv 后端连接 Docker PostgreSQL，走数据库优先持久化链路。
 - 模型供应商配置、固定选项输入、密钥脱敏。
-- Chat、Knowledge、Agent、Tools、Workflow、Prompt、Eval、Dashboard 主链路。
+- Chat、Knowledge、Project Diagnosis、Agent、Tools、Workflow、Prompt、Eval、Dashboard 主链路。
+- 项目诊断：输入日志、关键配置片段、服务状态，输出阻塞原因、修复动作、验收命令和诊断报告。
 - PDF 解析、文本清洗、RAG 问答、引用来源展示。
 - React Flow 工作流画布、工具调用审计持久化、Prompt/Eval 对比中心、Demo 动线。
 - pgvector SQL 检索基础能力、多租户 RBAC 请求上下文。
-- Windows 本地 14 步验收脚本、前端构建、后端测试。
+- Windows 本地 16 步验收脚本、前端构建、后端测试。
 
 当前真实状态和边界见：`docs/current-status.md`。
 
@@ -80,7 +81,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 推荐方式：**Docker 启动 PostgreSQL / Redis / MinIO，本地 uv 启动 FastAPI，本地 pnpm 启动 Next.js**。
 
-这不是只跑内存 Demo。V4 主验收路径要求数据库真实可连，内存 fallback 只作为兜底。
+这不是只跑内存 Demo。V6 主验收路径要求数据库真实可连，内存 fallback 只作为兜底。
 
 基础设施：
 
@@ -139,6 +140,12 @@ uv run python -m pytest
 curl http://localhost:8000/api/system/persistence/health
 ```
 
+项目诊断专项检查：
+
+```bash
+curl http://localhost:8000/api/project-diagnosis/demo
+```
+
 详细验收见：`docs/verification.md`。
 
 ## 演示路径
@@ -148,6 +155,7 @@ curl http://localhost:8000/api/system/persistence/health
 | Demo | `/demo` | 在线 Demo 演示动线与讲解词 |
 | Showcase | `/showcase` | 作品展示与面试讲解入口 |
 | Dashboard | `/dashboard` | 调用量、Token、耗时、失败率看板 |
+| Project Diagnosis | `/diagnosis` | 粘贴日志、配置片段和服务状态，输出阻塞原因、修复动作、验收命令和诊断报告 |
 | Settings | `/settings` | 模型供应商固定选项、连接测试、密钥脱敏 |
 | Chat | `/chat` | 调用后端 Chat 接口 |
 | Knowledge | `/knowledge` | 文档上传、清洗、切片、RAG 问答、引用来源 |
@@ -178,6 +186,7 @@ curl http://localhost:8000/api/system/persistence/health
 
 当前版本是本地可演示的工程增强版，仍不是完整生产级平台。后续重点：
 
+- 接入真实 GitHub 仓库读取、Docker API / 日志自动采集，让项目诊断从“粘贴输入”升级为“自动采集”。
 - 接入真实 Embedding Provider、Rerank 和真实模型评测。
 - 完善 Chat / RAG / Agent / Workflow 的真实模型流式输出。
 - 对每个业务路由强制执行租户隔离和 RBAC 鉴权。
@@ -187,4 +196,4 @@ curl http://localhost:8000/api/system/persistence/health
 
 ## 简历关键词
 
-RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Persistent Tool Audit、Prompt Versioning、React Flow Workflow Canvas、LLM Observability、Eval Compare、RBAC Context、Docker Compose。
+RAG、Embedding、pgvector、SSE、OpenAI-Compatible API、Agent Tool Calling、Persistent Tool Audit、Project Diagnosis、Prompt Versioning、React Flow Workflow Canvas、LLM Observability、Eval Compare、RBAC Context、Docker Compose。
