@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -21,7 +23,7 @@ class ProjectDiagnosisRequest(BaseModel):
     project_name: str = Field(default="未命名项目", min_length=1, max_length=120)
     repository_url: str | None = Field(default=None, max_length=300)
     runtime: str | None = Field(default=None, max_length=300)
-    question: str | None = Field(default=None, max_length=1000)
+    source: Literal["manual_input", "demo_sample"] = "manual_input"
     logs: str = Field(default="", max_length=40000)
     files: list[ProjectFile] = Field(default_factory=list, max_length=12)
     services: list[ServiceStatus] = Field(default_factory=list, max_length=30)
