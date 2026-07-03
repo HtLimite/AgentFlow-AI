@@ -16,8 +16,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     <select
       ref={ref}
       className={cn(
-        "w-full rounded-xl border bg-slate-950/60 px-4 py-3 text-sm text-slate-100 outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
-        error ? "border-red-400/50 focus:border-red-300/70 focus:ring-red-300/20" : "border-white/10 focus:border-blue-300/50 focus:ring-blue-300/20",
+        "w-full rounded-xl border bg-panel/60 px-4 py-3 text-sm text-foreground outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
+        error ? "border-danger/60 focus:border-danger/70 focus:ring-danger/20" : "border-border focus:border-primary/55 focus:ring-primary/20",
         className
       )}
       {...props}
@@ -28,15 +28,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 });
 
 export function SelectOption({ className, ...props }: React.OptionHTMLAttributes<HTMLOptionElement>) {
-  return <option className={cn("bg-slate-950 text-slate-100", className)} {...props} />;
+  return <option className={cn("bg-panel text-foreground", className)} {...props} />;
 }
 
 export function SelectField({ className, label, hint, error, children, ...props }: SelectFieldProps) {
   return (
-    <label className={cn("block text-sm text-slate-300", className)} {...props}>
-      {label ? <span className="mb-1 block font-medium text-slate-200">{label}</span> : null}
+    <label className={cn("block text-sm text-muted-foreground", className)} {...props}>
+      {label ? <span className="mb-1 block font-medium text-foreground">{label}</span> : null}
       {children}
-      {error ? <span className="mt-1 block text-xs text-red-300">{error}</span> : hint ? <span className="mt-1 block text-xs text-slate-500">{hint}</span> : null}
+      {error ? <span className="mt-1 block text-xs text-danger-foreground">{error}</span> : hint ? <span className="mt-1 block text-xs text-muted-foreground/75">{hint}</span> : null}
     </label>
   );
 }

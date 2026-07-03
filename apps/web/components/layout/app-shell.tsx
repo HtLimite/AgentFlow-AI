@@ -16,10 +16,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-transparent">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-white/10 bg-slate-950/85 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl lg:flex lg:flex-col">
-        <Link href="/dashboard" className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-blue-300/40 hover:bg-blue-400/10">
-          <div className="text-xl font-bold tracking-tight">AgentFlow-AI</div>
-          <div className="mt-1 text-sm text-slate-400">企业级 AI Agent 平台</div>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-border bg-panel/85 p-5 shadow-2xl shadow-background/30 backdrop-blur-xl lg:flex lg:flex-col">
+        <Link href="/dashboard" className="rounded-2xl border border-border bg-surface/40 p-4 transition hover:border-primary/40 hover:bg-primary-soft">
+          <div className="text-xl font-bold tracking-tight text-foreground">AgentFlow-AI</div>
+          <div className="mt-1 text-sm text-muted-foreground">企业级 AI Agent 平台</div>
         </Link>
 
         <nav className="mt-6 flex-1 space-y-1 overflow-y-auto pr-1">
@@ -32,36 +32,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                   active
-                    ? "border border-blue-300/30 bg-blue-500/15 text-white shadow-lg shadow-blue-950/20"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    ? "border border-primary/30 bg-primary/15 text-foreground shadow-lg shadow-primary/10"
+                    : "text-muted-foreground hover:bg-surface hover:text-foreground"
                 )}
               >
-                <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-semibold", active ? "border-blue-300/40 bg-blue-400/20 text-blue-100" : "border-white/10 bg-white/5 text-slate-400 group-hover:text-white")}>{item.icon}</span>
+                <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-semibold", active ? "border-primary/40 bg-primary/20 text-primary-foreground" : "border-border bg-surface/60 text-muted-foreground group-hover:text-foreground")}>{item.icon}</span>
                 <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+        <div className="mt-5 rounded-2xl border border-success/20 bg-success-soft p-4 text-sm text-success-foreground">
           <div className="flex items-center justify-between gap-3">
             <span className="font-medium">Local Runtime</span>
             <Badge variant="success">Ready</Badge>
           </div>
-          <p className="mt-2 text-xs leading-5 text-emerald-100/70">固定侧栏，内容区域独立滚动，适合控制台长页面使用。</p>
+          <p className="mt-2 text-xs leading-5 text-success-foreground/70">固定侧栏，内容区域独立滚动，适合控制台长页面使用。</p>
         </div>
       </aside>
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/75 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 border-b border-border bg-panel/75 backdrop-blur-xl">
           <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-5 lg:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-xs uppercase tracking-[0.24em] text-slate-500">Runtime Console</div>
-                <h1 className="mt-1 text-lg font-semibold text-white">AI 工作流控制台</h1>
+                <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Runtime Console</div>
+                <h1 className="mt-1 text-lg font-semibold text-foreground">AI 工作流控制台</h1>
               </div>
-              <div className="hidden items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 sm:flex">
-                <span className="h-2 w-2 rounded-full bg-emerald-300" />
+              <div className="hidden items-center gap-2 rounded-full border border-success/30 bg-success-soft px-3 py-1 text-xs text-success-foreground sm:flex">
+                <span className="h-2 w-2 rounded-full bg-success" />
                 Local Ready
               </div>
             </div>
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     className={cn(
                       "shrink-0 rounded-full border px-3 py-2 text-xs transition",
-                      active ? "border-blue-300/40 bg-blue-500/20 text-white" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      active ? "border-primary/40 bg-primary/20 text-foreground" : "border-border bg-surface/50 text-muted-foreground hover:bg-surface hover:text-foreground"
                     )}
                   >
                     {item.label}

@@ -30,10 +30,10 @@ export function Dropdown({ label, children, align = "left", className }: Dropdow
     <div ref={rootRef} className={cn("relative inline-flex", className)}>
       <Button variant="secondary" onClick={() => setOpen((current) => !current)} aria-haspopup="menu" aria-expanded={open}>
         {label}
-        <span className="text-xs text-slate-400">⌄</span>
+        <span className="text-xs text-muted-foreground">⌄</span>
       </Button>
       {open ? (
-        <div className={cn("absolute top-12 z-40 min-w-48 rounded-2xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl shadow-black/40 backdrop-blur", align === "right" ? "right-0" : "left-0")} role="menu">
+        <div className={cn("absolute top-12 z-40 min-w-48 rounded-2xl border border-border bg-panel/95 p-2 shadow-2xl shadow-background/40 backdrop-blur", align === "right" ? "right-0" : "left-0")} role="menu">
           {children}
         </div>
       ) : null}
@@ -49,8 +49,8 @@ export function DropdownItem({ className, destructive, ...props }: DropdownItemP
   return (
     <button
       className={cn(
-        "flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition hover:bg-white/10",
-        destructive ? "text-red-200 hover:text-red-100" : "text-slate-200 hover:text-white",
+        "flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition hover:bg-surface",
+        destructive ? "text-danger-foreground" : "text-foreground",
         className
       )}
       role="menuitem"

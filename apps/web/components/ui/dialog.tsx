@@ -38,12 +38,12 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button aria-label="关闭弹窗" className="absolute inset-0 cursor-default bg-slate-950/75 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
-      <section className={cn("relative w-full rounded-3xl border border-white/10 bg-slate-950 p-6 shadow-2xl shadow-black/50", sizeClassName[size])} role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
+      <button aria-label="关闭弹窗" className="absolute inset-0 cursor-default bg-background/75 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
+      <section className={cn("relative w-full rounded-3xl border border-border bg-panel p-6 shadow-2xl shadow-background/50", sizeClassName[size])} role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="app-dialog-title" className="text-lg font-semibold text-white">{title}</h2>
-            {description ? <p className="mt-2 text-sm leading-6 text-slate-400">{description}</p> : null}
+            <h2 id="app-dialog-title" className="text-lg font-semibold text-foreground">{title}</h2>
+            {description ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p> : null}
           </div>
           <Button variant="ghost" size="icon" aria-label="关闭" onClick={() => onOpenChange(false)}>×</Button>
         </div>

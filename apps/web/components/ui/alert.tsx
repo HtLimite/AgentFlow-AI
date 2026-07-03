@@ -8,17 +8,17 @@ interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantClassName: Record<AlertVariant, string> = {
-  info: "border-blue-400/30 bg-blue-400/10 text-blue-100",
-  success: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-  warning: "border-amber-400/30 bg-amber-400/10 text-amber-100",
-  error: "border-red-400/30 bg-red-400/10 text-red-100",
-  muted: "border-white/10 bg-white/5 text-slate-300",
+  info: "border-info/30 bg-info-soft text-info-foreground",
+  success: "border-success/30 bg-success-soft text-success-foreground",
+  warning: "border-warning/30 bg-warning-soft text-warning-foreground",
+  error: "border-danger/30 bg-danger-soft text-danger-foreground",
+  muted: "border-border bg-surface/50 text-muted-foreground",
 };
 
 export function Alert({ className, variant = "info", title, children, ...props }: AlertProps) {
   return (
     <div className={cn("rounded-2xl border p-4 text-sm leading-6", variantClassName[variant], className)} role={variant === "error" ? "alert" : "status"} {...props}>
-      {title ? <div className="mb-1 font-semibold text-white">{title}</div> : null}
+      {title ? <div className="mb-1 font-semibold text-foreground">{title}</div> : null}
       {children}
     </div>
   );
