@@ -1,4 +1,5 @@
 import { cn } from "@/components/ui/cn";
+import { uiTheme } from "@/components/ui/theme";
 
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
@@ -9,11 +10,11 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClassName: Record<ButtonVariant, string> = {
-  primary: "bg-blue-500 text-white shadow-lg shadow-blue-950/25 hover:bg-blue-400",
-  secondary: "border border-white/10 bg-white/10 text-slate-100 hover:bg-white/15",
-  outline: "border border-white/10 bg-transparent text-slate-100 hover:border-blue-300/40 hover:bg-blue-500/10",
-  ghost: "bg-transparent text-slate-300 hover:bg-white/10 hover:text-white",
-  danger: "bg-red-500 text-white shadow-lg shadow-red-950/20 hover:bg-red-400",
+  primary: "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/85",
+  secondary: "border border-border bg-surface text-foreground hover:bg-surface-strong",
+  outline: "border border-border bg-transparent text-foreground hover:border-primary/45 hover:bg-primary-soft",
+  ghost: "bg-transparent text-muted-foreground hover:bg-surface hover:text-foreground",
+  danger: "bg-danger text-danger-foreground shadow-lg shadow-danger/20 hover:bg-danger/85",
 };
 
 const sizeClassName: Record<ButtonSize, string> = {
@@ -28,7 +29,8 @@ export function Button({ className, variant = "primary", size = "md", type = "bu
     <button
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-300/50 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+        uiTheme.focusRing,
         variantClassName[variant],
         sizeClassName[size],
         className
