@@ -36,6 +36,7 @@ def clean_extracted_text(text: str) -> str:
     cleaned = re.sub(fr"(?<=[{_CJK_RANGE}])\s+(?=[{_CJK_RANGE}])", "", cleaned)
     cleaned = re.sub(fr"(?<=[{_CJK_RANGE}])\s+(?=[,.;:!?，。；：！？、）】》])", "", cleaned)
     cleaned = re.sub(fr"(?<=[（【《])\s+(?=[{_CJK_RANGE}])", "", cleaned)
+    cleaned = re.sub(fr"(?<=[{_CJK_RANGE}]),(?=[{_CJK_RANGE}])", "，", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = "\n".join(line.strip() for line in cleaned.splitlines())
     return cleaned.strip()
