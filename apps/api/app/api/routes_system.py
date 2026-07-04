@@ -304,8 +304,13 @@ async def full_health_check() -> dict[str, object]:
         "chat": True,
         "provider_streaming": True,
         "provider_embedding": True,
+        # Rerank is a local heuristic reranker (fixed-weight blend), not a real
+        # cross-encoder provider. Mark it honestly until a provider is wired in.
         "rerank": True,
+        "rerank_provider": False,
+        # Judge is a heuristic substring matcher, not an LLM-as-judge provider.
         "judge": True,
+        "judge_provider": False,
         "knowledge_base": len(knowledge_bases) > 0,
         "agent_tools": len(tools) >= 4,
         "tool_audit": tool_audit_ready,
@@ -318,7 +323,7 @@ async def full_health_check() -> dict[str, object]:
         "eval_compare": True,
         "observability": summary["calls_today"] >= 0,
     }
-    failed_modules = [name for name, ok in modules.items() if not ok]
+    failed_modules = [name for name, ok in modules.items() if not ok and not name.endswith("_provider")]
     return {
         "status": "ok" if not failed_modules else "failed",
         "modules": modules,

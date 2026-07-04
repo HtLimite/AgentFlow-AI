@@ -126,13 +126,41 @@ class ProviderAdapter:
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(f"{provider.base_url.rstrip('/')}/models", headers=self._headers(credential))
             latency_ms = int((time.perf_counter() - started) * 1000)
+            status_code = response.status_code
+            if 200 <= status_code < 300:
+                return ProviderCallResult(
+                    ok=True,
+                    message="provider reachable and authenticated",
+                    latency_ms=latency_ms,
+                    data={"status_code": status_code},
+                )
+            if status_code in (401, 403):
+                return ProviderCallResult(
+                    ok=False,
+                    message=f"authentication failed (HTTP {status_code}): check API key / base url",
+                    latency_ms=latency_ms,
+                    data={"status_code": status_code},
+                )
+            if status_code == 404:
+                return ProviderCallResult(
+                    ok=False,
+                    message=f"endpoint not found (HTTP 404): check base url (got {provider.base_url})",
+                    latency_ms=latency_ms,
+                    data={"status_code": status_code},
+                )
             return ProviderCallResult(
-                ok=response.status_code < 500,
-                message="provider reachable" if response.status_code < 500 else "provider returned server error",
+                ok=False,
+                message=f"provider returned HTTP {status_code}",
                 latency_ms=latency_ms,
-                data={"status_code": response.status_code},
+                data={"status_code": status_code},
             )
-        except Exception as exc:
+        except httpx.ConnectError as exc:
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            return ProviderCallResult(ok=False, message=f"connection failed: {exc}", latency_ms=latency_ms, data={})
+        except httpx.TimeoutException:
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            return ProviderCallResult(ok=False, message="request timed out", latency_ms=latency_ms, data={})
+        except Exception as exc:  # noqa: BLE001 - surface any other failure to the caller
             latency_ms = int((time.perf_counter() - started) * 1000)
             return ProviderCallResult(ok=False, message=str(exc), latency_ms=latency_ms, data={})
 
