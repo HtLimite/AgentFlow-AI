@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
+import { API_BASE_URL, errorMessage } from "@/lib/api-client";
 import { navigationItems } from "@/lib/navigation";
 
 function isActivePath(pathname: string, href: string) {
@@ -11,8 +13,54 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+type HealthState = "checking" | "ok" | "down";
+
+async function pingApi(signal: AbortSignal): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, { signal, cache: "no-store" });
+    return response.ok;
+  } catch (error) {
+    if ((error as Error)?.name === "AbortError") return false;
+    return false;
+  }
+}
+
+function useApiHealth() {
+  const [state, setState] = useState<HealthState>("checking");
+
+  const check = useCallback(async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const ok = await pingApi(controller.signal);
+      setState(ok ? "ok" : "down");
+    } finally {
+      clearTimeout(timer);
+    }
+  }, []);
+
+  useEffect(() => {
+    void check();
+    const id = setInterval(() => void check(), 30000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [check]);
+
+  return { state, refresh: check };
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { state, refresh } = useApiHealth();
+  const badgeText = state === "ok" ? "Ready" : state === "down" ? "Offline" : "Checking";
+  const badgeVariant: "success" | "danger" | "warning" = state === "ok" ? "success" : state === "down" ? "danger" : "warning";
+  const dotClass = state === "ok" ? "bg-success" : state === "down" ? "bg-danger" : "bg-warning animate-pulse";
 
   return (
     <div className="min-h-screen bg-transparent">
@@ -43,13 +91,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-5 rounded-2xl border border-success/20 bg-success-soft p-4 text-sm text-success-foreground">
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className={cn(
+            "mt-5 w-full rounded-2xl border p-4 text-left text-sm transition",
+            state === "ok" ? "border-success/20 bg-success-soft text-success-foreground" : state === "down" ? "border-danger/20 bg-danger-soft text-danger-foreground" : "border-warning/20 bg-warning-soft text-warning-foreground"
+          )}
+          title="点击重新检测后端健康状态"
+        >
           <div className="flex items-center justify-between gap-3">
             <span className="font-medium">Local Runtime</span>
-            <Badge variant="success">Ready</Badge>
+            <Badge variant={badgeVariant}>{badgeText}</Badge>
           </div>
-          <p className="mt-2 text-xs leading-5 text-success-foreground/70">固定侧栏，内容区域独立滚动，适合控制台长页面使用。</p>
-        </div>
+          <p className="mt-2 text-xs leading-5 opacity-70">
+            {state === "ok" ? "后端已连接，可正常调用 API。" : state === "down" ? "后端不可达，请确认本地服务已启动。" : "正在检测后端连通性..."}
+          </p>
+        </button>
       </aside>
 
       <div className="lg:pl-72">
@@ -60,9 +118,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">Runtime Console</div>
                 <h1 className="mt-1 text-lg font-semibold text-foreground">AI 工作流控制台</h1>
               </div>
-              <div className="hidden items-center gap-2 rounded-full border border-success/30 bg-success-soft px-3 py-1 text-xs text-success-foreground sm:flex">
-                <span className="h-2 w-2 rounded-full bg-success" />
-                Local Ready
+              <div className={cn(
+                "hidden items-center gap-2 rounded-full border px-3 py-1 text-xs sm:flex",
+                state === "ok" ? "border-success/30 bg-success-soft text-success-foreground" : state === "down" ? "border-danger/30 bg-danger-soft text-danger-foreground" : "border-warning/30 bg-warning-soft text-warning-foreground"
+              )}>
+                <span className={cn("h-2 w-2 rounded-full", dotClass)} />
+                {state === "ok" ? "API Connected" : state === "down" ? "API Offline" : "Checking API"}
               </div>
             </div>
 

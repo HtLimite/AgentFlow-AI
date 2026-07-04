@@ -32,6 +32,44 @@ export function PromptConsole() {
 
   const selectedPrompt = useMemo(() => items.find((item) => item.id === selectedPromptId), [items, selectedPromptId]);
 
+  // Extract {{placeholders}} from the current content so users get dedicated
+  // input fields instead of having to hand-write JSON. Editing the content
+  // (either the selected prompt or the draft) updates this list live.
+  const detectedVariables = useMemo(() => {
+    const matches = form.content.match(/\{\{\s*([\w-]+)\s*\}\}/g) ?? [];
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const match of matches) {
+      const name = match.replace(/\{\{\s*|\s*\}\}/g, "");
+      if (!seen.has(name)) {
+        seen.add(name);
+        result.push(name);
+      }
+    }
+    return result;
+  }, [form.content]);
+
+  // Per-variable values keyed by name, kept in sync with the raw JSON textarea.
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+
+  // When the detected variable set changes (prompt switched / content edited),
+  // seed any missing keys from the raw JSON and keep existing values.
+  useEffect(() => {
+    setVariableValues((current) => {
+      const next: Record<string, string> = {};
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(variablesText || "{}");
+      } catch {
+        parsed = {};
+      }
+      for (const name of detectedVariables) {
+        next[name] = current[name] ?? (typeof parsed[name] === "string" ? (parsed[name] as string) : "");
+      }
+      return next;
+    });
+  }, [detectedVariables]);
+
   async function load(preferredId = selectedPromptId) {
     const data = await apiGet<PromptItem[]>("/api/prompts");
     setItems(data);
@@ -117,12 +155,21 @@ export function PromptConsole() {
       setRendered("请先选择 Prompt");
       return;
     }
-    let variables: Record<string, unknown> = {};
-    try {
-      variables = JSON.parse(variablesText || "{}");
-    } catch {
-      setRendered("变量不是合法 JSON");
-      return;
+    // Prefer structured per-variable fields when present; fall back to the raw
+    // JSON textarea so power users can still paste complex objects.
+    const structured: Record<string, string> = {};
+    for (const name of detectedVariables) {
+      const value = variableValues[name];
+      if (value !== undefined && value !== "") structured[name] = value;
+    }
+    let variables: Record<string, unknown> = structured;
+    if (Object.keys(structured).length === 0) {
+      try {
+        variables = JSON.parse(variablesText || "{}");
+      } catch {
+        setRendered("变量不是合法 JSON，且未填写结构化变量");
+        return;
+      }
     }
     setBusy(true);
     try {
@@ -199,7 +246,28 @@ export function PromptConsole() {
 
         <Card>
           <h2 className="font-semibold">测试变量</h2>
-          <textarea className="mt-4 min-h-32 w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm text-foreground" value={variablesText} onChange={(event) => setVariablesText(event.target.value)} />
+          {detectedVariables.length > 0 ? (
+            <div className="mt-4 space-y-3">
+              <p className="text-xs text-muted-foreground/70">从当前 Prompt 内容中识别到以下变量，逐项填写后渲染即可，无需手写 JSON。</p>
+              {detectedVariables.map((name) => (
+                <label key={name} className="block text-sm text-muted-foreground">
+                  <span className="mb-1 block text-xs text-muted-foreground/70">{"{{" + name + "}}"}</span>
+                  <input
+                    className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-foreground"
+                    value={variableValues[name] ?? ""}
+                    onChange={(event) => setVariableValues((current) => ({ ...current, [name]: event.target.value }))}
+                    placeholder={`填写 ${name} 的值`}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-muted-foreground/70">当前 Prompt 内容没有 {"{{变量}}"} 占位符，可直接渲染或改用下方 JSON。</p>
+          )}
+          <details className="mt-4">
+            <summary className="cursor-pointer text-xs text-muted-foreground/70">高级：直接编辑 JSON 变量</summary>
+            <textarea className="mt-3 min-h-32 w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm text-foreground" value={variablesText} onChange={(event) => setVariablesText(event.target.value)} />
+          </details>
           <Button className="mt-4" onClick={test} disabled={busy || !selectedPromptId}>{busy ? "渲染中..." : "渲染 Prompt"}</Button>
           <h2 className="mt-6 font-semibold">测试结果</h2>
           <pre className="mt-4 overflow-auto rounded-xl bg-panel/80 p-4 text-sm text-muted-foreground">{rendered}</pre>
