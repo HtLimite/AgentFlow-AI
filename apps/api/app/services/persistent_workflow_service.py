@@ -28,6 +28,35 @@ class PersistentWorkflowService:
             return None
         return {"id": item.id, "name": item.name, "definition": item.definition_json, "enabled": item.enabled}
 
+    async def create_workflow(self, session: AsyncSession, name: str, definition: WorkflowDefinition, enabled: bool = True) -> dict[str, object]:
+        item = WorkflowDefinitionModel(name=name, definition_json=definition.model_dump(), enabled=enabled)
+        session.add(item)
+        await session.commit()
+        await session.refresh(item)
+        return {"id": item.id, "name": item.name, "definition": item.definition_json, "enabled": item.enabled}
+
+    async def update_workflow(self, session: AsyncSession, workflow_id: int, name: str | None = None, definition: WorkflowDefinition | None = None, enabled: bool | None = None) -> dict[str, object] | None:
+        item = await session.get(WorkflowDefinitionModel, workflow_id)
+        if item is None:
+            return None
+        if name is not None:
+            item.name = name
+        if definition is not None:
+            item.definition_json = definition.model_dump()
+        if enabled is not None:
+            item.enabled = enabled
+        await session.commit()
+        await session.refresh(item)
+        return {"id": item.id, "name": item.name, "definition": item.definition_json, "enabled": item.enabled}
+
+    async def delete_workflow(self, session: AsyncSession, workflow_id: int) -> bool:
+        item = await session.get(WorkflowDefinitionModel, workflow_id)
+        if item is None:
+            return False
+        await session.delete(item)
+        await session.commit()
+        return True
+
     async def run(self, session: AsyncSession, workflow_id: int, input_data: dict[str, object], definition: WorkflowDefinition | None = None) -> dict[str, object]:
         stored = await session.get(WorkflowDefinitionModel, workflow_id)
         effective_definition = definition
