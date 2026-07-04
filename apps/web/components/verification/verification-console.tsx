@@ -95,45 +95,45 @@ export function VerificationConsole() {
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold">项目验收中心</h2>
-          <p className="mt-1 text-sm text-slate-400">用于检查所有阶段任务是否具备演示闭环。</p>
+          <p className="mt-1 text-sm text-muted-foreground">用于检查所有阶段任务是否具备演示闭环。</p>
         </div>
         <Button onClick={run} disabled={running}>{running ? "体检中..." : "运行系统体检"}</Button>
       </Card>
-      {error && <Card className="border-red-400/40 text-red-200">{error}</Card>}
+      {error && <Card className="border-red-400/40 text-danger-foreground">{error}</Card>}
       {result && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <h3 className="font-semibold">模块状态</h3>
             <div className="mt-4 grid gap-2">
               {Object.entries(result.modules).map(([key, ok]) => (
-                <div key={key} className="flex items-center justify-between rounded-xl bg-white/10 px-4 py-3 text-sm">
+                <div key={key} className="flex items-center justify-between rounded-xl bg-surface/60 px-4 py-3 text-sm">
                   <span>{key}</span>
-                  <span className={ok ? "text-emerald-300" : "text-red-300"}>{ok ? "通过" : "未通过"}</span>
+                  <span className={ok ? "text-emerald-300" : "text-danger-foreground"}>{ok ? "通过" : "未通过"}</span>
                 </div>
               ))}
             </div>
           </Card>
           <Card>
             <h3 className="font-semibold">模块数量</h3>
-            <pre className="mt-4 rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">{JSON.stringify(result.counts, null, 2)}</pre>
+            <pre className="mt-4 rounded-xl bg-panel/70 p-4 text-sm text-foreground">{JSON.stringify(result.counts, null, 2)}</pre>
           </Card>
         </div>
       )}
       <Card>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">人工验收项</h3>
-          <span className="text-xs text-slate-400">已勾选 {checkedCount}/{checks.length}</span>
+          <span className="text-xs text-muted-foreground">已勾选 {checkedCount}/{checks.length}</span>
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-2">
           {checks.map((item) => (
-            <label key={item.label} className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/10 px-4 py-3 text-sm text-slate-300 transition hover:bg-white/20">
+            <label key={item.label} className="flex cursor-pointer items-center gap-3 rounded-xl bg-surface/60 px-4 py-3 text-sm text-muted-foreground transition hover:bg-surface-strong">
               <input
                 type="checkbox"
                 checked={item.checked}
                 onChange={() => toggleCheck(item.label)}
                 className="h-4 w-4 accent-emerald-400"
               />
-              <span className={item.checked ? "line-through text-slate-500" : ""}>{item.label}</span>
+              <span className={item.checked ? "line-through text-muted-foreground/70" : ""}>{item.label}</span>
             </label>
           ))}
         </div>

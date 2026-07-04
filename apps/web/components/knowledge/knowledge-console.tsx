@@ -195,9 +195,9 @@ export function KnowledgeConsole() {
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold">知识库 RAG · 持久化检索</h2>
-          <p className="mt-1 text-sm text-slate-400">从接口读取知识库列表，不固定知识库 ID。请选择或创建知识库后上传真实文档。</p>
+          <p className="mt-1 text-sm text-muted-foreground">从接口读取知识库列表，不固定知识库 ID。请选择或创建知识库后上传真实文档。</p>
         </div>
-        <label className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-200 hover:bg-white/15">
+        <label className="rounded-xl border border-border bg-surface/60 px-4 py-3 text-sm text-foreground hover:bg-surface/80">
           {uploading ? "解析中..." : "上传文档"}
           <input type="file" accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf" onChange={upload} className="hidden" disabled={uploading || !selectedId} />
         </label>
@@ -205,7 +205,7 @@ export function KnowledgeConsole() {
 
       <Card>
         <div className="flex flex-col gap-3 md:flex-row">
-          <input className="flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={newBaseName} onChange={(event) => setNewBaseName(event.target.value)} placeholder="新知识库名称" />
+          <input className="flex-1 rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={newBaseName} onChange={(event) => setNewBaseName(event.target.value)} placeholder="新知识库名称" />
           <Button onClick={createBase}>创建知识库</Button>
           <Button onClick={() => void reload(selectedId)}>刷新</Button>
         </div>
@@ -213,7 +213,7 @@ export function KnowledgeConsole() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {items.length === 0 ? (
-          <Card className="text-sm text-slate-400">暂无知识库，请先创建。</Card>
+          <Card className="text-sm text-muted-foreground">暂无知识库，请先创建。</Card>
         ) : (
           items.map((row) => (
             <button key={row.id} onClick={() => setSelectedId(row.id)} className="text-left">
@@ -222,9 +222,9 @@ export function KnowledgeConsole() {
                   <h3 className="font-semibold">{row.name}</h3>
                   <Badge>{row.status}</Badge>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-300">
-                  <div className="rounded-xl bg-white/10 p-3">文档 {row.document_count}</div>
-                  <div className="rounded-xl bg-white/10 p-3">切片 {row.chunk_count}</div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-muted-foreground">
+                  <div className="rounded-xl bg-surface/60 p-3">文档 {row.document_count}</div>
+                  <div className="rounded-xl bg-surface/60 p-3">切片 {row.chunk_count}</div>
                 </div>
               </Card>
             </button>
@@ -236,19 +236,19 @@ export function KnowledgeConsole() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold">文档列表</h3>
-            <p className="mt-1 text-xs text-slate-500">当前知识库：{selectedId ?? "未选择"}</p>
+            <p className="mt-1 text-xs text-muted-foreground/70">当前知识库：{selectedId ?? "未选择"}</p>
           </div>
           <Button onClick={() => void reload(selectedId)} disabled={!selectedId}>刷新</Button>
         </div>
         <div className="mt-4 space-y-2">
           {documents.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">暂无文档，请先上传。</div>
+            <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">暂无文档，请先上传。</div>
           ) : (
             documents.map((document) => (
-              <div key={document.id} className="flex flex-col gap-3 rounded-xl bg-white/10 p-4 text-sm md:flex-row md:items-center md:justify-between">
+              <div key={document.id} className="flex flex-col gap-3 rounded-xl bg-surface/60 p-4 text-sm md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="font-medium">{document.filename}</div>
-                  <div className="mt-1 text-slate-400">#{document.id} · {document.parse_status} · 切片 {document.chunk_count}</div>
+                  <div className="mt-1 text-muted-foreground">#{document.id} · {document.parse_status} · 切片 {document.chunk_count}</div>
                 </div>
                 <Button onClick={() => setConfirmDeleteId(document.id)} disabled={removingId === document.id} variant="danger">
                   {removingId === document.id ? "删除中" : "删除"}
@@ -261,56 +261,56 @@ export function KnowledgeConsole() {
 
       <Card>
         <div className="flex flex-col gap-3 md:flex-row">
-          <input className="flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入要从当前知识库检索的问题" />
+          <input className="flex-1 rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入要从当前知识库检索的问题" />
           <Button onClick={query} disabled={!selectedId || !question.trim() || querying}>{querying ? "检索中" : "知识库问答"}</Button>
         </div>
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-300">{statusMessage}</div>
+        <div className="mt-4 rounded-xl border border-border bg-surface/30 p-3 text-sm text-muted-foreground">{statusMessage}</div>
 
         {result ? (
           <div className="mt-4 space-y-4">
             <section className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
               <div className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-200">Answer</div>
-              <h3 className="mt-2 text-lg font-semibold text-white">直接答案</h3>
-              <p className="mt-3 text-base leading-8 text-slate-100">{result.summary || result.answer}</p>
+              <h3 className="mt-2 text-lg font-semibold text-foreground">直接答案</h3>
+              <p className="mt-3 text-base leading-8 text-foreground">{result.summary || result.answer}</p>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+            <section className="rounded-2xl border border-border bg-panel/40 p-5">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <div className="text-xs font-medium uppercase tracking-[0.2em] text-blue-200">Evidence</div>
-                  <h3 className="mt-2 text-lg font-semibold text-white">命中依据</h3>
+                  <div className="text-xs font-medium uppercase tracking-[0.2em] text-primary-foreground">Evidence</div>
+                  <h3 className="mt-2 text-lg font-semibold text-foreground">命中依据</h3>
                 </div>
                 <Badge>{evidence.length ? `${evidence.length} 条引用` : "无引用"}</Badge>
               </div>
               <div className="mt-4 space-y-3">
                 {evidence.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-slate-400">没有可展示的引用片段。</div>
+                  <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">没有可展示的引用片段。</div>
                 ) : (
                   evidence.map((item) => (
-                    <article key={`${item.document}-${item.index}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <article key={`${item.document}-${item.index}`} className="rounded-xl border border-border bg-surface/30 p-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <div className="font-medium text-slate-100">来源 {item.index} · {item.document}</div>
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-300">
-                          <span className="rounded-full bg-white/10 px-2 py-1">score {formatScore(item.score)}</span>
-                          <span className="rounded-full bg-white/10 px-2 py-1">lexical {formatScore(item.lexical_score)}</span>
-                          <span className="rounded-full bg-white/10 px-2 py-1">vector {formatScore(item.vector_score)}</span>
-                          {typeof item.rerank_score === "number" ? <span className="rounded-full bg-white/10 px-2 py-1">rerank {formatScore(item.rerank_score)}</span> : null}
+                        <div className="font-medium text-foreground">来源 {item.index} · {item.document}</div>
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span className="rounded-full bg-surface/60 px-2 py-1">score {formatScore(item.score)}</span>
+                          <span className="rounded-full bg-surface/60 px-2 py-1">lexical {formatScore(item.lexical_score)}</span>
+                          <span className="rounded-full bg-surface/60 px-2 py-1">vector {formatScore(item.vector_score)}</span>
+                          {typeof item.rerank_score === "number" ? <span className="rounded-full bg-surface/60 px-2 py-1">rerank {formatScore(item.rerank_score)}</span> : null}
                         </div>
                       </div>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">{compactText(item.content)}</p>
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{compactText(item.content)}</p>
                     </article>
                   ))
                 )}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-sm text-slate-300">
-              <div className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Debug</div>
+            <section className="rounded-2xl border border-border bg-panel/40 p-5 text-sm text-muted-foreground">
+              <div className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">Debug</div>
               <div className="mt-3 grid gap-2 md:grid-cols-4">
-                <div className="rounded-xl bg-white/5 p-3">KB：{result.debug?.kb_id ?? selectedId ?? "-"}</div>
-                <div className="rounded-xl bg-white/5 p-3">策略：{result.debug?.strategy ?? "-"}</div>
-                <div className="rounded-xl bg-white/5 p-3">TopK：{result.debug?.top_k ?? "-"}</div>
-                <div className="rounded-xl bg-white/5 p-3">Rerank：{result.debug?.rerank ? "开启" : "-"}</div>
+                <div className="rounded-xl bg-surface/30 p-3">KB：{result.debug?.kb_id ?? selectedId ?? "-"}</div>
+                <div className="rounded-xl bg-surface/30 p-3">策略：{result.debug?.strategy ?? "-"}</div>
+                <div className="rounded-xl bg-surface/30 p-3">TopK：{result.debug?.top_k ?? "-"}</div>
+                <div className="rounded-xl bg-surface/30 p-3">Rerank：{result.debug?.rerank ? "开启" : "-"}</div>
               </div>
             </section>
           </div>

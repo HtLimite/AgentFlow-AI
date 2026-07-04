@@ -100,9 +100,9 @@ function buildDefinition(nodes: WorkflowNode[], edges: WorkflowEdge[], kbId: num
 }
 
 function nodeClassName(isActive: boolean, isSelected: boolean) {
-  if (isSelected) return "border-blue-300 bg-blue-500/20";
+  if (isSelected) return "border-primary bg-primary/15";
   if (isActive) return "border-emerald-300 bg-emerald-500/20";
-  return "border-slate-700 bg-slate-900";
+  return "border-border bg-panel";
 }
 
 export function WorkflowCanvas() {
@@ -290,7 +290,7 @@ export function WorkflowCanvas() {
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold">React Flow 拖拽工作流画布</h2>
-          <p className="mt-1 text-sm text-slate-400">拖拽节点、连线、编辑配置，可保存为新工作流或更新当前工作流定义后运行。</p>
+          <p className="mt-1 text-sm text-muted-foreground">拖拽节点、连线、编辑配置，可保存为新工作流或更新当前工作流定义后运行。</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => addNode("http")}>添加 HTTP 节点</Button>
@@ -303,10 +303,10 @@ export function WorkflowCanvas() {
 
       <Card>
         <div className="grid gap-3 md:grid-cols-4">
-          <label className="block text-sm text-slate-300">
-            <span className="mb-1 block text-xs text-slate-500">工作流</span>
+          <label className="block text-sm text-muted-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground/70">工作流</span>
             <select
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3"
+              className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3"
               value={selectedWorkflowId ?? ""}
               onChange={(event) => {
                 const id = Number(event.target.value);
@@ -320,30 +320,30 @@ export function WorkflowCanvas() {
               ))}
             </select>
           </label>
-          <label className="block text-sm text-slate-300">
-            <span className="mb-1 block text-xs text-slate-500">知识库</span>
-            <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={selectedKbId ?? ""} onChange={(event) => setSelectedKbId(Number(event.target.value))}>
+          <label className="block text-sm text-muted-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground/70">知识库</span>
+            <select className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3" value={selectedKbId ?? ""} onChange={(event) => setSelectedKbId(Number(event.target.value))}>
               {knowledgeBases.map((item) => (
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
           </label>
-          <label className="block text-sm text-slate-300 md:col-span-2">
-            <span className="mb-1 block text-xs text-slate-500">输入问题</span>
-            <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入本次工作流问题" />
+          <label className="block text-sm text-muted-foreground md:col-span-2">
+            <span className="mb-1 block text-xs text-muted-foreground/70">输入问题</span>
+            <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入本次工作流问题" />
           </label>
         </div>
       </Card>
 
-      {error && <Card className="border-red-400/40 text-red-200">{error}</Card>}
-      {message && !error && <Card className="text-sm text-slate-300">{message}</Card>}
+      {error && <Card className="border-red-400/40 text-danger-foreground">{error}</Card>}
+      {message && !error && <Card className="text-sm text-muted-foreground">{message}</Card>}
 
       <Card>
-        <div className="h-[520px] overflow-hidden rounded-2xl border border-white/10 bg-slate-950">
+        <div className="h-[520px] overflow-hidden rounded-2xl border border-border bg-panel">
           <ReactFlow
             nodes={nodes.map((node) => ({
               ...node,
-              className: `rounded-xl border px-4 py-3 text-white shadow-xl ${nodeClassName(activeNodeIds.has(node.id), selected === node.id)}`,
+              className: `rounded-xl border px-4 py-3 text-foreground shadow-xl ${nodeClassName(activeNodeIds.has(node.id), selected === node.id)}`,
             }))}
             edges={edges}
             onNodesChange={onNodesChange}
@@ -363,40 +363,40 @@ export function WorkflowCanvas() {
         <Card>
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">节点编辑</h3>
-            {selectedNode && <Button onClick={deleteSelectedNode} className="!bg-red-500/20 !text-red-200">删除节点</Button>}
+            {selectedNode && <Button onClick={deleteSelectedNode} className="!bg-danger-soft !text-danger-foreground">删除节点</Button>}
           </div>
           {selectedNode ? (
             <div className="mt-4 space-y-3 text-sm">
-              <label className="block text-slate-300">
-                <span className="mb-1 block text-xs text-slate-500">节点标签</span>
-                <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={selectedNode.data.label} onChange={(event) => updateNodeField("label", event.target.value)} />
+              <label className="block text-muted-foreground">
+                <span className="mb-1 block text-xs text-muted-foreground/70">节点标签</span>
+                <input className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={selectedNode.data.label} onChange={(event) => updateNodeField("label", event.target.value)} />
               </label>
-              <label className="block text-slate-300">
-                <span className="mb-1 block text-xs text-slate-500">描述</span>
-                <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={selectedNode.data.description} onChange={(event) => updateNodeField("description", event.target.value)} />
+              <label className="block text-muted-foreground">
+                <span className="mb-1 block text-xs text-muted-foreground/70">描述</span>
+                <input className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={selectedNode.data.description} onChange={(event) => updateNodeField("description", event.target.value)} />
               </label>
               <NodeConfigEditor node={selectedNode} onConfig={updateNodeConfig} />
-              <div className="rounded-xl bg-white/5 p-3 text-xs text-slate-400">类型：{selectedNode.data.nodeType} · ID：{selectedNode.id}</div>
+              <div className="rounded-xl bg-surface/30 p-3 text-xs text-muted-foreground">类型：{selectedNode.data.nodeType} · ID：{selectedNode.id}</div>
             </div>
           ) : (
-            <div className="mt-4 rounded-xl bg-white/5 p-4 text-sm text-slate-400">点击画布节点进行编辑。</div>
+            <div className="mt-4 rounded-xl bg-surface/30 p-4 text-sm text-muted-foreground">点击画布节点进行编辑。</div>
           )}
         </Card>
         <Card>
           <h3 className="font-semibold">节点运行输出</h3>
-          <pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">
+          <pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-panel/70 p-4 text-sm text-foreground">
             {JSON.stringify(selectedRun ?? { node_id: selected, message: "运行后查看节点输出" }, null, 2)}
           </pre>
         </Card>
         <Card>
           <h3 className="font-semibold">连线条件</h3>
           <div className="mt-4 space-y-2">
-            {edges.length === 0 && <div className="rounded-xl bg-white/5 p-4 text-sm text-slate-400">暂无连线。</div>}
+            {edges.length === 0 && <div className="rounded-xl bg-surface/30 p-4 text-sm text-muted-foreground">暂无连线。</div>}
             {edges.map((edge) => (
-              <div key={edge.id} className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs text-slate-300">
+              <div key={edge.id} className="flex items-center gap-2 rounded-xl bg-surface/30 px-3 py-2 text-xs text-muted-foreground">
                 <span className="flex-1">{edge.source} → {edge.target}</span>
                 <select
-                  className="rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1"
+                  className="rounded-lg border border-border bg-panel/60 px-2 py-1"
                   value={edge.condition ?? ""}
                   onChange={(event) => updateEdgeCondition(edge.id, event.target.value)}
                 >
@@ -419,9 +419,9 @@ function NodeConfigEditor({ node, onConfig }: { node: WorkflowNode; onConfig: (k
 
   if (type === "knowledge") {
     return (
-      <label className="block text-slate-300">
-        <span className="mb-1 block text-xs text-slate-500">top_k</span>
-        <input type="number" min={1} max={20} className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.top_k ?? 3)} onChange={(event) => onConfig("top_k", Number(event.target.value))} />
+      <label className="block text-muted-foreground">
+        <span className="mb-1 block text-xs text-muted-foreground/70">top_k</span>
+        <input type="number" min={1} max={20} className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.top_k ?? 3)} onChange={(event) => onConfig("top_k", Number(event.target.value))} />
       </label>
     );
   }
@@ -429,17 +429,17 @@ function NodeConfigEditor({ node, onConfig }: { node: WorkflowNode; onConfig: (k
   if (type === "llm") {
     return (
       <div className="space-y-3">
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">Prompt 模板</span>
-          <textarea className="min-h-20 w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.prompt ?? "")} onChange={(event) => onConfig("prompt", event.target.value)} />
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">Prompt 模板</span>
+          <textarea className="min-h-20 w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.prompt ?? "")} onChange={(event) => onConfig("prompt", event.target.value)} />
         </label>
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">模型名（可选，覆盖默认）</span>
-          <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.model ?? "")} onChange={(event) => onConfig("model", event.target.value)} placeholder="留空用默认 chat 模型" />
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">模型名（可选，覆盖默认）</span>
+          <input className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.model ?? "")} onChange={(event) => onConfig("model", event.target.value)} placeholder="留空用默认 chat 模型" />
         </label>
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">Temperature</span>
-          <input type="number" step={0.1} min={0} max={2} className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.temperature ?? 0.7)} onChange={(event) => onConfig("temperature", Number(event.target.value))} />
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">Temperature</span>
+          <input type="number" step={0.1} min={0} max={2} className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.temperature ?? 0.7)} onChange={(event) => onConfig("temperature", Number(event.target.value))} />
         </label>
       </div>
     );
@@ -448,19 +448,19 @@ function NodeConfigEditor({ node, onConfig }: { node: WorkflowNode; onConfig: (k
   if (type === "condition") {
     return (
       <div className="space-y-3">
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">输入字段 key</span>
-          <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.key ?? "")} onChange={(event) => onConfig("key", event.target.value)} placeholder="例如 value / n" />
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">输入字段 key</span>
+          <input className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.key ?? "")} onChange={(event) => onConfig("key", event.target.value)} placeholder="例如 value / n" />
         </label>
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">运算符</span>
-          <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.operator ?? "equals")} onChange={(event) => onConfig("operator", event.target.value)}>
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">运算符</span>
+          <select className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.operator ?? "equals")} onChange={(event) => onConfig("operator", event.target.value)}>
             {OPERATOR_OPTIONS.map((op) => <option key={op} value={op}>{op}</option>)}
           </select>
         </label>
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">比较值</span>
-          <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.value ?? "")} onChange={(event) => onConfig("value", event.target.value)} />
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">比较值</span>
+          <input className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.value ?? "")} onChange={(event) => onConfig("value", event.target.value)} />
         </label>
       </div>
     );
@@ -469,22 +469,22 @@ function NodeConfigEditor({ node, onConfig }: { node: WorkflowNode; onConfig: (k
   if (type === "http") {
     return (
       <div className="space-y-3">
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">Method</span>
-          <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.method ?? "GET")} onChange={(event) => onConfig("method", event.target.value)}>
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">Method</span>
+          <select className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.method ?? "GET")} onChange={(event) => onConfig("method", event.target.value)}>
             <option value="GET">GET</option>
             <option value="POST">POST</option>
             <option value="PUT">PUT</option>
             <option value="DELETE">DELETE</option>
           </select>
         </label>
-        <label className="block text-slate-300">
-          <span className="mb-1 block text-xs text-slate-500">URL</span>
-          <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={String(config.url ?? "")} onChange={(event) => onConfig("url", event.target.value)} placeholder="https://..." />
+        <label className="block text-muted-foreground">
+          <span className="mb-1 block text-xs text-muted-foreground/70">URL</span>
+          <input className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={String(config.url ?? "")} onChange={(event) => onConfig("url", event.target.value)} placeholder="https://..." />
         </label>
       </div>
     );
   }
 
-  return <div className="rounded-xl bg-white/5 p-3 text-xs text-slate-400">该节点类型无可编辑配置。</div>;
+  return <div className="rounded-xl bg-surface/30 p-3 text-xs text-muted-foreground">该节点类型无可编辑配置。</div>;
 }

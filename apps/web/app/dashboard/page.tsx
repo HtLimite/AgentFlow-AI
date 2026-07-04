@@ -79,22 +79,22 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {error && <Card className="border-red-400/40 text-red-200">{error}</Card>}
+      {error && <Card className="border-red-400/40 text-danger-foreground">{error}</Card>}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item) => (
           <Card key={item.label}>
-            <div className="text-sm text-slate-400">{item.label}</div>
+            <div className="text-sm text-muted-foreground">{item.label}</div>
             <div className="mt-3 text-3xl font-bold">{item.value}</div>
-            <div className="mt-2 text-xs text-slate-500">{item.hint}</div>
+            <div className="mt-2 text-xs text-muted-foreground/70">{item.hint}</div>
           </Card>
         ))}
       </section>
       <section className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <h2 className="font-semibold">调用明细</h2>
-          <div className="mt-4 overflow-hidden rounded-xl border border-white/10">
+          <div className="mt-4 overflow-hidden rounded-xl border border-border">
             <table className="w-full text-left text-sm">
-              <thead className="bg-white/10 text-slate-300">
+              <thead className="bg-surface/60 text-muted-foreground">
                 <tr>
                   <th className="p-3">场景</th>
                   <th className="p-3">模型</th>
@@ -106,11 +106,11 @@ export default async function DashboardPage() {
               <tbody>
                 {logs.length === 0 ? (
                   <tr>
-                    <td className="p-4 text-slate-400" colSpan={5}>暂无真实调用记录。先在 Chat / RAG / Agent 页面运行一次，再回到 Dashboard。</td>
+                    <td className="p-4 text-muted-foreground" colSpan={5}>暂无真实调用记录。先在 Chat / RAG / Agent 页面运行一次，再回到 Dashboard。</td>
                   </tr>
                 ) : (
                   logs.slice(0, 8).map((item) => (
-                    <tr key={item.id} className="border-t border-white/10">
+                    <tr key={item.id} className="border-t border-border">
                       <td className="p-3">{item.scenario ?? "-"}</td>
                       <td className="p-3">{item.model ?? "-"}</td>
                       <td className="p-3">{item.total_tokens ?? 0}</td>
@@ -125,16 +125,16 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <h2 className="font-semibold">最近错误</h2>
-          <ul className="mt-4 space-y-3 text-sm text-slate-300">
+          <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
             {failedLogs.length === 0 ? (
-              <li className="text-slate-400">暂无失败调用。</li>
+              <li className="text-muted-foreground">暂无失败调用。</li>
             ) : (
               failedLogs.map((item) => (
                 <li key={item.id}>{item.scenario ?? "unknown"} · {item.error_message ?? item.status}</li>
               ))
             )}
           </ul>
-          <div className="mt-6 rounded-xl bg-white/5 p-4 text-xs text-slate-400">
+          <div className="mt-6 rounded-xl bg-surface/30 p-4 text-xs text-muted-foreground">
             数据源：{summary.source ?? "database"}。不再显示固定演示数字。
           </div>
         </Card>

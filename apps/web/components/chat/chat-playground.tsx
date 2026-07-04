@@ -164,26 +164,26 @@ export function ChatPlayground() {
     <div className="grid gap-4 xl:grid-cols-[280px_1fr_320px]">
       <Card>
         <h2 className="font-semibold">会话列表</h2>
-        <div className="mt-4 space-y-2 text-sm text-slate-300">
-          <div className="rounded-xl bg-white/10 p-3">多模型对话测试</div>
-          <div className="rounded-xl p-3 hover:bg-white/10">流式输出验证</div>
-          <div className="rounded-xl p-3 hover:bg-white/10">本地 fallback 验证</div>
+        <div className="mt-4 space-y-2 text-sm text-muted-foreground">
+          <div className="rounded-xl bg-surface/60 p-3">多模型对话测试</div>
+          <div className="rounded-xl p-3 hover:bg-surface/60">流式输出验证</div>
+          <div className="rounded-xl p-3 hover:bg-surface/60">本地 fallback 验证</div>
         </div>
       </Card>
       <Card className="min-h-[620px]">
         <h2 className="font-semibold">Chat Playground</h2>
-        <pre className="mt-5 min-h-[360px] whitespace-pre-wrap rounded-2xl bg-white/10 p-4 text-sm text-slate-200">{answer}</pre>
+        <pre className="mt-5 min-h-[360px] whitespace-pre-wrap rounded-2xl bg-surface/60 p-4 text-sm text-foreground">{answer}</pre>
         <div className="mt-6 flex gap-3">
-          <input className="flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm outline-none" value={question} onChange={(event) => setQuestion(event.target.value)} />
+          <input className="flex-1 rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm outline-none" value={question} onChange={(event) => setQuestion(event.target.value)} />
           <Button onClick={send} disabled={loading || !question.trim()}>{loading ? "发送中" : streamMode ? "流式发送" : "发送"}</Button>
         </div>
       </Card>
       <Card>
         <h2 className="font-semibold">模型参数</h2>
-        <div className="mt-4 space-y-4 text-sm text-slate-300">
+        <div className="mt-4 space-y-4 text-sm text-muted-foreground">
           <label className="block">
-            <span className="mb-1 block text-xs text-slate-500">当前模型</span>
-            <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
+            <span className="mb-1 block text-xs text-muted-foreground/70">当前模型</span>
+            <select className="w-full rounded-xl border border-border bg-panel/60 px-3 py-2" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
               <option value="">local-fallback / 自动默认</option>
               {models.map((item) => (
                 <option key={item.id} value={item.model_name}>{item.model_name}</option>
@@ -198,7 +198,7 @@ export function ChatPlayground() {
           <div>可用 Chat 模型：{models.length}</div>
           <div>模型来源：/api/model-providers/models/list</div>
           <Button onClick={loadModels}>刷新模型</Button>
-          {modelError && <div className="rounded-xl bg-red-500/10 p-3 text-red-200">{modelError}</div>}
+          {modelError && <div className="rounded-xl bg-danger-soft p-3 text-danger-foreground">{modelError}</div>}
         </div>
       </Card>
     </div>

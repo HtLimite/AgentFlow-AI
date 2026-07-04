@@ -142,14 +142,14 @@ export function PromptConsole() {
           <h2 className="font-semibold">Prompt 模板</h2>
           <Button onClick={() => void load(selectedPromptId)}>刷新</Button>
         </div>
-        <div className="mt-4 space-y-2 text-sm text-slate-300">
+        <div className="mt-4 space-y-2 text-sm text-muted-foreground">
           {items.length === 0 ? (
-            <div className="rounded-xl bg-white/10 p-3 text-slate-400">暂无 Prompt，请在右侧新建。</div>
+            <div className="rounded-xl bg-surface/60 p-3 text-muted-foreground">暂无 Prompt，请在右侧新建。</div>
           ) : (
             items.map((item) => (
-              <button key={item.id} onClick={() => setSelectedPromptId(item.id)} className={`block w-full rounded-xl p-3 text-left hover:bg-white/15 ${selectedPromptId === item.id ? "bg-blue-500/20" : "bg-white/10"}`}>
+              <button key={item.id} onClick={() => setSelectedPromptId(item.id)} className={`block w-full rounded-xl p-3 text-left hover:bg-surface/80 ${selectedPromptId === item.id ? "bg-primary/15" : "bg-surface/60"}`}>
                 {item.name}
-                <div className="text-xs text-slate-500">{item.scenario} · v{item.current_version ?? 1}</div>
+                <div className="text-xs text-muted-foreground/70">{item.scenario} · v{item.current_version ?? 1}</div>
               </button>
             ))
           )}
@@ -158,10 +158,10 @@ export function PromptConsole() {
         <h3 className="mt-6 font-semibold">版本记录</h3>
         <div className="mt-3 space-y-2">
           {versions.length === 0 ? (
-            <div className="rounded-xl bg-white/5 p-3 text-sm text-slate-500">暂无版本。</div>
+            <div className="rounded-xl bg-surface/30 p-3 text-sm text-muted-foreground/70">暂无版本。</div>
           ) : (
             versions.slice(0, 6).map((item) => (
-              <button key={item.version} className="block w-full rounded-xl bg-white/5 p-3 text-left text-xs text-slate-400" onClick={() => setForm((current) => ({ ...current, content: item.content, changeNote: `restore v${item.version}` }))}>
+              <button key={item.version} className="block w-full rounded-xl bg-surface/30 p-3 text-left text-xs text-muted-foreground" onClick={() => setForm((current) => ({ ...current, content: item.content, changeNote: `restore v${item.version}` }))}>
                 v{item.version} · {item.change_note ?? "-"} · 点击载入内容
               </button>
             ))
@@ -172,23 +172,23 @@ export function PromptConsole() {
       <div className="space-y-4">
         <Card>
           <h2 className="font-semibold">创建 / 更新 Prompt</h2>
-          {error && <div className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">{error}</div>}
+          {error && <div className="mt-3 rounded-xl bg-danger-soft p-3 text-sm text-danger-foreground">{error}</div>}
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="block text-sm text-slate-300">
-              <span className="mb-1 block text-xs text-slate-500">名称</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+            <label className="block text-sm text-muted-foreground">
+              <span className="mb-1 block text-xs text-muted-foreground/70">名称</span>
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
             </label>
-            <label className="block text-sm text-slate-300">
-              <span className="mb-1 block text-xs text-slate-500">场景</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={form.scenario} onChange={(event) => setForm({ ...form, scenario: event.target.value })} />
+            <label className="block text-sm text-muted-foreground">
+              <span className="mb-1 block text-xs text-muted-foreground/70">场景</span>
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3" value={form.scenario} onChange={(event) => setForm({ ...form, scenario: event.target.value })} />
             </label>
-            <label className="block text-sm text-slate-300 md:col-span-2">
-              <span className="mb-1 block text-xs text-slate-500">内容</span>
-              <textarea className="min-h-40 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-200" value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} />
+            <label className="block text-sm text-muted-foreground md:col-span-2">
+              <span className="mb-1 block text-xs text-muted-foreground/70">内容</span>
+              <textarea className="min-h-40 w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm text-foreground" value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} />
             </label>
-            <label className="block text-sm text-slate-300 md:col-span-2">
-              <span className="mb-1 block text-xs text-slate-500">更新说明</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3" value={form.changeNote} onChange={(event) => setForm({ ...form, changeNote: event.target.value })} />
+            <label className="block text-sm text-muted-foreground md:col-span-2">
+              <span className="mb-1 block text-xs text-muted-foreground/70">更新说明</span>
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3" value={form.changeNote} onChange={(event) => setForm({ ...form, changeNote: event.target.value })} />
             </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
@@ -199,10 +199,10 @@ export function PromptConsole() {
 
         <Card>
           <h2 className="font-semibold">测试变量</h2>
-          <textarea className="mt-4 min-h-32 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-200" value={variablesText} onChange={(event) => setVariablesText(event.target.value)} />
+          <textarea className="mt-4 min-h-32 w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm text-foreground" value={variablesText} onChange={(event) => setVariablesText(event.target.value)} />
           <Button className="mt-4" onClick={test} disabled={busy || !selectedPromptId}>{busy ? "渲染中..." : "渲染 Prompt"}</Button>
           <h2 className="mt-6 font-semibold">测试结果</h2>
-          <pre className="mt-4 overflow-auto rounded-xl bg-slate-950/80 p-4 text-sm text-slate-300">{rendered}</pre>
+          <pre className="mt-4 overflow-auto rounded-xl bg-panel/80 p-4 text-sm text-muted-foreground">{rendered}</pre>
         </Card>
       </div>
     </div>

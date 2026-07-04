@@ -400,16 +400,16 @@ export function ModelProviderManager() {
     <div className="space-y-4">
       <Card>
         <h2 className="text-xl font-semibold">模型配置中心 · V5 完整管理</h2>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           当前阶段补齐供应商和模型的新增、编辑、启停、删除、连接测试；Chat / RAG / Eval / Workflow 会读取这里的启用模型。
         </p>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <div className="rounded-xl bg-white/10 p-3 text-sm text-slate-300">供应商 {items.length}</div>
-          <div className="rounded-xl bg-white/10 p-3 text-sm text-slate-300">Chat {enabledChatModels}</div>
-          <div className="rounded-xl bg-white/10 p-3 text-sm text-slate-300">Embedding {enabledEmbeddingModels}</div>
-          <div className="rounded-xl bg-white/10 p-3 text-sm text-slate-300">Rerank {enabledRerankModels}</div>
+          <div className="rounded-xl bg-surface/60 p-3 text-sm text-muted-foreground">供应商 {items.length}</div>
+          <div className="rounded-xl bg-surface/60 p-3 text-sm text-muted-foreground">Chat {enabledChatModels}</div>
+          <div className="rounded-xl bg-surface/60 p-3 text-sm text-muted-foreground">Embedding {enabledEmbeddingModels}</div>
+          <div className="rounded-xl bg-surface/60 p-3 text-sm text-muted-foreground">Rerank {enabledRerankModels}</div>
         </div>
-        <div className="mt-4 rounded-xl bg-white/10 p-3 text-sm text-slate-300">状态：{message}</div>
+        <div className="mt-4 rounded-xl bg-surface/60 p-3 text-sm text-muted-foreground">状态：{message}</div>
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -417,36 +417,36 @@ export function ModelProviderManager() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="font-semibold">{editingProviderId ? "编辑模型供应商" : "新增模型供应商"}</h2>
-              <p className="mt-2 text-sm text-slate-400">预设只负责快速填充，Base URL 仍可手动修正，避免火山方舟 Plan 地址被锁死。</p>
+              <p className="mt-2 text-sm text-muted-foreground">预设只负责快速填充，Base URL 仍可手动修正，避免火山方舟 Plan 地址被锁死。</p>
             </div>
             {editingProviderId && <Button onClick={resetProviderForm}>取消编辑</Button>}
           </div>
           <div className="mt-4 space-y-3">
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">供应商预设</span>
-              <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={presetKey} onChange={(event) => applyPreset(event.target.value)}>
+              <select className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={presetKey} onChange={(event) => applyPreset(event.target.value)}>
                 {PROVIDER_PRESETS.map((item) => (
                   <option key={item.key} value={item.key}>{item.label}</option>
                 ))}
               </select>
             </label>
 
-            <div className="rounded-xl bg-white/10 p-3 text-xs text-slate-400">{selectedPreset.description}</div>
+            <div className="rounded-xl bg-surface/60 p-3 text-xs text-muted-foreground">{selectedPreset.description}</div>
 
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">供应商名称</span>
               <input
-                className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm"
                 value={form.name}
                 onChange={(event) => setForm({ ...form, name: event.target.value })}
                 placeholder="供应商名称"
               />
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">协议类型</span>
               <select
-                className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm"
                 value={form.providerType}
                 onChange={(event) => setForm({ ...form, providerType: event.target.value as ProviderType })}
               >
@@ -454,23 +454,23 @@ export function ModelProviderManager() {
                   <option key={item.value} value={item.value}>{item.label}</option>
                 ))}
               </select>
-              {providerTypeMeta ? <span className="mt-1 block text-xs text-slate-500">{providerTypeMeta.description}</span> : null}
+              {providerTypeMeta ? <span className="mt-1 block text-xs text-muted-foreground/70">{providerTypeMeta.description}</span> : null}
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">Base URL</span>
               <input
-                className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm"
                 value={form.baseUrl}
                 onChange={(event) => setForm({ ...form, baseUrl: event.target.value })}
                 placeholder="Base URL"
               />
             </label>
 
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">API Key{editingProviderId ? "，留空则不修改" : ""}</span>
               <input
-                className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm"
+                className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm"
                 value={form.apiKey}
                 onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
                 placeholder="API Key，仅提交后端加密保存"
@@ -478,7 +478,7 @@ export function ModelProviderManager() {
               />
             </label>
 
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input type="checkbox" checked={form.enabled} onChange={(event) => setForm({ ...form, enabled: event.target.checked })} />
               启用供应商
             </label>
@@ -491,45 +491,45 @@ export function ModelProviderManager() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="font-semibold">{editingModelId ? "编辑模型" : "新增模型"}</h2>
-              <p className="mt-2 text-sm text-slate-400">模型名必须填写供应商真实支持的 model 参数。价格字段用于后续成本统计，可先留空。</p>
+              <p className="mt-2 text-sm text-muted-foreground">模型名必须填写供应商真实支持的 model 参数。价格字段用于后续成本统计，可先留空。</p>
             </div>
             {editingModelId && <Button onClick={() => resetModelForm(modelForm.providerId)}>取消编辑</Button>}
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">所属供应商</span>
-              <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.providerId} onChange={(event) => setModelForm({ ...modelForm, providerId: event.target.value })}>
+              <select className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={modelForm.providerId} onChange={(event) => setModelForm({ ...modelForm, providerId: event.target.value })}>
                 {items.map((item) => (
                   <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
               </select>
             </label>
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">模型类型</span>
-              <select className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.modelType} onChange={(event) => setModelForm({ ...modelForm, modelType: event.target.value as ModelType })}>
+              <select className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={modelForm.modelType} onChange={(event) => setModelForm({ ...modelForm, modelType: event.target.value as ModelType })}>
                 {MODEL_TYPE_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>{item.label}</option>
                 ))}
               </select>
-              {modelTypeMeta ? <span className="mt-1 block text-xs text-slate-500">{modelTypeMeta.hint}</span> : null}
+              {modelTypeMeta ? <span className="mt-1 block text-xs text-muted-foreground/70">{modelTypeMeta.hint}</span> : null}
             </label>
-            <label className="block text-sm text-slate-300 md:col-span-2">
+            <label className="block text-sm text-muted-foreground md:col-span-2">
               <span className="mb-1 block">真实模型名</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.modelName} onChange={(event) => setModelForm({ ...modelForm, modelName: event.target.value })} placeholder="例如 deepseek-chat、qwen-plus、ark-code-latest、doubao-seed-1-6" />
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={modelForm.modelName} onChange={(event) => setModelForm({ ...modelForm, modelName: event.target.value })} placeholder="例如 deepseek-chat、qwen-plus、ark-code-latest、doubao-seed-1-6" />
             </label>
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">上下文窗口，可选</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.contextWindow} onChange={(event) => setModelForm({ ...modelForm, contextWindow: event.target.value })} placeholder="例如 128000" type="number" />
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={modelForm.contextWindow} onChange={(event) => setModelForm({ ...modelForm, contextWindow: event.target.value })} placeholder="例如 128000" type="number" />
             </label>
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">输入价格，可选</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.inputPrice} onChange={(event) => setModelForm({ ...modelForm, inputPrice: event.target.value })} placeholder="每 1K / 1M token 成本，按供应商口径" type="number" step="0.000001" />
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={modelForm.inputPrice} onChange={(event) => setModelForm({ ...modelForm, inputPrice: event.target.value })} placeholder="每 1K / 1M token 成本，按供应商口径" type="number" step="0.000001" />
             </label>
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-muted-foreground">
               <span className="mb-1 block">输出价格，可选</span>
-              <input className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={modelForm.outputPrice} onChange={(event) => setModelForm({ ...modelForm, outputPrice: event.target.value })} placeholder="每 1K / 1M token 成本，按供应商口径" type="number" step="0.000001" />
+              <input className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={modelForm.outputPrice} onChange={(event) => setModelForm({ ...modelForm, outputPrice: event.target.value })} placeholder="每 1K / 1M token 成本，按供应商口径" type="number" step="0.000001" />
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input type="checkbox" checked={modelForm.enabled} onChange={(event) => setModelForm({ ...modelForm, enabled: event.target.checked })} />
               启用模型
             </label>
@@ -543,21 +543,21 @@ export function ModelProviderManager() {
           <h2 className="font-semibold">供应商列表</h2>
           <div className="mt-4 space-y-3">
             {items.length === 0 ? (
-              <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">暂无供应商，请先新增。</div>
+              <div className="rounded-xl bg-surface/30 p-4 text-sm text-muted-foreground">暂无供应商，请先新增。</div>
             ) : (
               items.map((item) => (
-                <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+                <div key={item.id} className="rounded-xl border border-border bg-surface/30 p-4">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <div className="font-medium">{item.name}</div>
-                      <div className="mt-1 break-all text-xs text-slate-400">{item.base_url}</div>
-                      <div className="mt-1 text-xs text-slate-500">{item.provider_type} · {item.api_key_masked} · {item.enabled ? "enabled" : "disabled"}</div>
+                      <div className="mt-1 break-all text-xs text-muted-foreground">{item.base_url}</div>
+                      <div className="mt-1 text-xs text-muted-foreground/70">{item.provider_type} · {item.api_key_masked} · {item.enabled ? "enabled" : "disabled"}</div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => testProvider(item.id)}>测试</Button>
                       <Button onClick={() => editProvider(item)}>编辑</Button>
                       <Button onClick={() => toggleProvider(item)}>{item.enabled ? "停用" : "启用"}</Button>
-                      <Button className="bg-red-500 hover:bg-red-400" onClick={() => setConfirmRemove({ kind: "provider", id: item.id, label: item.name })}>删除</Button>
+                      <Button className="bg-danger hover:bg-danger/85" onClick={() => setConfirmRemove({ kind: "provider", id: item.id, label: item.name })}>删除</Button>
                     </div>
                   </div>
                 </div>
@@ -570,24 +570,24 @@ export function ModelProviderManager() {
           <h2 className="font-semibold">模型列表</h2>
           <div className="mt-4 space-y-3">
             {models.length === 0 ? (
-              <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">暂无模型，请先新增模型。</div>
+              <div className="rounded-xl bg-surface/30 p-4 text-sm text-muted-foreground">暂无模型，请先新增模型。</div>
             ) : (
               models.map((item) => (
-                <div key={item.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
+                <div key={item.id} className="rounded-xl border border-border bg-surface/30 p-4 text-sm text-muted-foreground">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <div className="font-medium">{item.model_name}</div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-muted-foreground/70">
                         {providerNameMap.get(item.provider_id) ?? `Provider #${item.provider_id}`} · {item.model_type} · {item.enabled ? "enabled" : "disabled"}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
+                      <div className="mt-1 text-xs text-muted-foreground/70">
                         上下文 {item.context_window ?? "-"} · 输入价 {displayPrice(item.input_price)} · 输出价 {displayPrice(item.output_price)}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => editModel(item)}>编辑</Button>
                       <Button onClick={() => toggleModel(item)}>{item.enabled ? "停用" : "启用"}</Button>
-                      <Button className="bg-red-500 hover:bg-red-400" onClick={() => setConfirmRemove({ kind: "model", id: item.id, label: item.model_name })}>删除</Button>
+                      <Button className="bg-danger hover:bg-danger/85" onClick={() => setConfirmRemove({ kind: "model", id: item.id, label: item.model_name })}>删除</Button>
                     </div>
                   </div>
                 </div>

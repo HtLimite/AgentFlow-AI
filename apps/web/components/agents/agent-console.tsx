@@ -56,23 +56,23 @@ export function AgentConsole() {
   return (
     <Card>
       <h2 className="text-xl font-semibold">Agent 工具调用</h2>
-      <p className="mt-2 text-sm text-slate-400">从后端 Agent 列表读取当前 Agent，不固定 /api/agents/1。工具选择由后端根据输入动态判断。</p>
+      <p className="mt-2 text-sm text-muted-foreground">从后端 Agent 列表读取当前 Agent，不固定 /api/agents/1。工具选择由后端根据输入动态判断。</p>
       <div className="mt-5 grid gap-3 md:grid-cols-[260px_1fr_auto]">
-        <select className="rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={selectedAgentId ?? ""} onChange={(event) => setSelectedAgentId(Number(event.target.value))}>
+        <select className="rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={selectedAgentId ?? ""} onChange={(event) => setSelectedAgentId(Number(event.target.value))}>
           {agents.length === 0 && <option value="">加载中...</option>}
           {agents.map((agent) => (
             <option key={agent.id} value={agent.id}>{agent.name}</option>
           ))}
         </select>
-        <input className="rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入问题、SELECT 查询、计算表达式或完整 URL" />
+        <input className="rounded-xl border border-border bg-panel/60 px-4 py-3 text-sm" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="输入问题、SELECT 查询、计算表达式或完整 URL" />
         <Button onClick={run} disabled={running || !selectedAgentId || !question.trim()}>{running ? "运行中" : "运行 Agent"}</Button>
       </div>
       {selectedAgent && (
-        <div className="mt-4 rounded-xl bg-white/10 p-3 text-xs text-slate-400">
+        <div className="mt-4 rounded-xl bg-surface/60 p-3 text-xs text-muted-foreground">
           {selectedAgent.description ?? "无描述"} · 工具：{selectedAgent.tools?.join(", ") || "-"} · 来源：{selectedAgent.source ?? "runtime"}
         </div>
       )}
-      <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">{result}</pre>
+      <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-panel/70 p-4 text-sm text-foreground">{result}</pre>
     </Card>
   );
 }

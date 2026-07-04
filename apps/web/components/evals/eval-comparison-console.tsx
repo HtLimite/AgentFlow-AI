@@ -131,21 +131,21 @@ export function EvalComparisonConsole() {
       <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Prompt / Eval 对比中心</h2>
-          <p className="mt-1 text-sm text-slate-400">用同一评测集横向比较不同 Prompt 或模型版本，辅助调优决策。</p>
+          <p className="mt-1 text-sm text-muted-foreground">用同一评测集横向比较不同 Prompt 或模型版本，辅助调优决策。</p>
         </div>
         <Button onClick={runCompare} disabled={running || !datasetId}>
           {running ? "对比中..." : "运行对比"}
         </Button>
       </Card>
 
-      {error && <Card className="border-red-400/40 text-red-200">{error}</Card>}
+      {error && <Card className="border-red-400/40 text-danger-foreground">{error}</Card>}
 
       <Card>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="block text-sm text-slate-300">
-            <span className="mb-1 block text-xs text-slate-500">评测集</span>
+          <label className="block text-sm text-muted-foreground">
+            <span className="mb-1 block text-xs text-muted-foreground/70">评测集</span>
             <select
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3"
+              className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3"
               value={datasetId ?? ""}
               onChange={(event) => setDatasetId(Number(event.target.value))}
             >
@@ -158,10 +158,10 @@ export function EvalComparisonConsole() {
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {candidates.map((candidate, index) => (
-            <label key={index} className="block text-sm text-slate-300">
-              <span className="mb-1 block text-xs text-slate-500">{candidate.label}</span>
+            <label key={index} className="block text-sm text-muted-foreground">
+              <span className="mb-1 block text-xs text-muted-foreground/70">{candidate.label}</span>
               <select
-                className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3"
+                className="w-full rounded-xl border border-border bg-panel/60 px-4 py-3"
                 value={candidate.model}
                 onChange={(event) => setCandidates((current) => current.map((item, i) => (i === index ? { ...item, model: event.target.value } : item)))}
               >
@@ -173,7 +173,7 @@ export function EvalComparisonConsole() {
             </label>
           ))}
         </div>
-        {loading && <div className="mt-3 text-xs text-slate-500">加载评测集与模型中...</div>}
+        {loading && <div className="mt-3 text-xs text-muted-foreground/70">加载评测集与模型中...</div>}
       </Card>
 
       {runs.length > 0 && (
@@ -183,10 +183,10 @@ export function EvalComparisonConsole() {
             const isBest = best?.model === candidate.model;
             return (
               <Card key={candidate.model} className={isBest ? "border-emerald-300/60" : ""}>
-                <div className="text-sm text-slate-400">{candidate.label}</div>
+                <div className="text-sm text-muted-foreground">{candidate.label}</div>
                 <div className="mt-2 text-lg font-semibold">{candidate.model}</div>
                 <div className="mt-4 text-4xl font-bold">{run ? run.score : "--"}</div>
-                <div className="mt-2 text-sm text-slate-400">{run ? `${run.status} · ${run.source ?? "memory"}` : "等待运行"}</div>
+                <div className="mt-2 text-sm text-muted-foreground">{run ? `${run.status} · ${run.source ?? "memory"}` : "等待运行"}</div>
                 {isBest && <div className="mt-4 rounded-full bg-emerald-400/15 px-3 py-1 text-sm text-emerald-200">当前最佳</div>}
               </Card>
             );
@@ -199,24 +199,24 @@ export function EvalComparisonConsole() {
           <h3 className="font-semibold">逐题对比</h3>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="text-slate-400">
+              <thead className="text-muted-foreground">
                 <tr>
-                  <th className="border-b border-white/10 py-3 pr-4">问题</th>
+                  <th className="border-b border-border py-3 pr-4">问题</th>
                   {runs.map((run) => (
-                    <th key={run.model} className="border-b border-white/10 py-3 pr-4">{run.model}</th>
+                    <th key={run.model} className="border-b border-border py-3 pr-4">{run.model}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {allQuestions.map((question) => (
                   <tr key={question}>
-                    <td className="border-b border-white/10 py-3 pr-4 text-slate-300">{question}</td>
+                    <td className="border-b border-border py-3 pr-4 text-muted-foreground">{question}</td>
                     {runs.map((run) => {
                       const c = caseFor(run, question);
                       return (
-                        <td key={run.model} className="border-b border-white/10 py-3 pr-4">
+                        <td key={run.model} className="border-b border-border py-3 pr-4">
                           <div className="font-semibold">{c ? c.score : "--"}</div>
-                          <div className="mt-1 text-xs text-slate-400">{c?.reason ?? ""}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">{c?.reason ?? ""}</div>
                         </td>
                       );
                     })}
