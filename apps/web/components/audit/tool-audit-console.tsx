@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiGet } from "@/lib/api-client";
+import { apiGet, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -34,8 +34,11 @@ export function ToolAuditConsole() {
   const [toolFilter, setToolFilter] = useState("all");
   const [keyword, setKeyword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function load() {
+    setRefreshing(true);
     try {
       setError("");
       const [list, stats] = await Promise.all([
@@ -46,7 +49,10 @@ export function ToolAuditConsole() {
       setSummary(stats);
       setSelectedId((current) => (current && list.some((item) => item.id === current) ? current : list[0]?.id ?? null));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "审计数据加载失败");
+      setError(errorMessage(err, "审计数据加载失败"));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   }
 
@@ -72,7 +78,18 @@ export function ToolAuditConsole() {
     });
   }, [records, statusFilter, toolFilter, keyword]);
 
-  const selected = filteredRecords.find((item) => item.id === selectedId) ?? filteredRecords[0] ?? records.find((item) => item.id === selectedId) ?? records[0];
+  // Keep selectedId in sync with the filtered list: if the current selection
+  // is hidden by the active filter, fall back to the first visible record.
+  useEffect(() => {
+    if (filteredRecords.length === 0) return;
+    const stillVisible = filteredRecords.some((item) => item.id === selectedId);
+    if (!stillVisible) {
+      setSelectedId(filteredRecords[0].id);
+    }
+  }, [filteredRecords, selectedId]);
+
+  const selected = records.find((item) => item.id === selectedId) ?? null;
+  const dash = "--";
 
   return (
     <div className="space-y-4">
@@ -81,7 +98,7 @@ export function ToolAuditConsole() {
           <h2 className="text-xl font-semibold">工具调用审计</h2>
           <p className="mt-1 text-sm text-slate-400">追踪 Agent 每次工具调用的输入、输出、状态、耗时和 trace_id，支持筛选定位异常。</p>
         </div>
-        <Button onClick={load}>刷新审计</Button>
+        <Button onClick={load} disabled={refreshing}>{refreshing ? "刷新中..." : "刷新审计"}</Button>
       </Card>
 
       {error && <Card className="border-red-400/40 text-red-200">{error}</Card>}
@@ -89,19 +106,21 @@ export function ToolAuditConsole() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <div className="text-sm text-slate-400">调用总数</div>
-          <div className="mt-2 text-2xl font-bold">{summary?.total_calls ?? 0}</div>
+          <div className="mt-2 text-2xl font-bold">{loading ? dash : summary?.total_calls ?? 0}</div>
         </Card>
         <Card>
           <div className="text-sm text-slate-400">成功率</div>
-          <div className="mt-2 text-2xl font-bold">{Math.round((summary?.success_rate ?? 1) * 100)}%</div>
+          <div className="mt-2 text-2xl font-bold">
+            {loading ? dash : `${Math.round((summary?.success_rate ?? 0) * 100)}%`}
+          </div>
         </Card>
         <Card>
           <div className="text-sm text-slate-400">失败数</div>
-          <div className="mt-2 text-2xl font-bold">{summary?.failed_calls ?? 0}</div>
+          <div className="mt-2 text-2xl font-bold">{loading ? dash : summary?.failed_calls ?? 0}</div>
         </Card>
         <Card>
           <div className="text-sm text-slate-400">平均耗时</div>
-          <div className="mt-2 text-2xl font-bold">{summary?.avg_latency_ms ?? 0}ms</div>
+          <div className="mt-2 text-2xl font-bold">{loading ? dash : `${summary?.avg_latency_ms ?? 0}ms`}</div>
         </Card>
       </div>
 
@@ -135,7 +154,9 @@ export function ToolAuditConsole() {
         <Card>
           <h3 className="font-semibold">调用记录 · {filteredRecords.length}/{records.length}</h3>
           <div className="mt-4 space-y-2">
-            {filteredRecords.length === 0 ? (
+            {loading ? (
+              <div className="rounded-xl bg-white/5 p-4 text-sm text-slate-400">加载中...</div>
+            ) : filteredRecords.length === 0 ? (
               <div className="rounded-xl bg-white/5 p-4 text-sm text-slate-400">当前筛选条件下暂无记录。</div>
             ) : (
               filteredRecords.map((item) => (
@@ -159,7 +180,7 @@ export function ToolAuditConsole() {
         <Card>
           <h3 className="font-semibold">审计详情</h3>
           <pre className="mt-4 max-h-[620px] overflow-auto whitespace-pre-wrap rounded-xl bg-slate-950/70 p-4 text-sm text-slate-200">
-            {JSON.stringify(selected ?? { message: "暂无审计记录" }, null, 2)}
+            {selected ? JSON.stringify(selected, null, 2) : "{\n  \"message\": \"暂无审计记录\"\n}"}
           </pre>
         </Card>
       </div>
