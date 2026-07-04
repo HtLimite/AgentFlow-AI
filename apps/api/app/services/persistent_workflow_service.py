@@ -62,7 +62,7 @@ class PersistentWorkflowService:
         effective_definition = definition
         if effective_definition is None and stored is not None:
             effective_definition = WorkflowDefinition.model_validate(stored.definition_json)
-        result = await workflow_engine.run(workflow_id=workflow_id, input_data=input_data, definition=effective_definition)
+        result = await workflow_engine.run(workflow_id=workflow_id, input_data=input_data, definition=effective_definition, session=session)
         run = WorkflowRunModel(workflow_id=workflow_id, status=str(result["status"]), input_json=input_data, output_json=result.get("output"))
         session.add(run)
         await session.flush()
