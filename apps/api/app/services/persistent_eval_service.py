@@ -34,6 +34,46 @@ class PersistentEvalService:
         data["source"] = "database"
         return data
 
+    async def list_runs(self, session: AsyncSession, dataset_id: int | None = None, limit: int = 50, offset: int = 0) -> list[dict[str, object]]:
+        await self._ensure_default_dataset(session)
+        stmt = select(EvalRunModel).order_by(EvalRunModel.id.desc()).limit(limit).offset(offset)
+        if dataset_id is not None:
+            stmt = stmt.where(EvalRunModel.dataset_id == dataset_id)
+        result = await session.scalars(stmt)
+        return [self._serialize_run(item) for item in result.all()]
+
+    async def get_run(self, session: AsyncSession, run_id: int) -> dict[str, object] | None:
+        await self._ensure_default_dataset(session)
+        item = await session.get(EvalRunModel, run_id)
+        if item is None:
+            return None
+        return self._serialize_run(item)
+
+    async def compare_runs(self, session: AsyncSession, run_ids: list[int]) -> dict[str, object]:
+        await self._ensure_default_dataset(session)
+        runs: list[dict[str, object]] = []
+        for run_id in run_ids:
+            item = await session.get(EvalRunModel, run_id)
+            if item is not None:
+                runs.append(self._serialize_run(item))
+        best = min(runs, key=lambda row: float(row.get("score") or 0), default=None)
+        best_id = best["id"] if best else None
+        for run in runs:
+            run["is_best"] = run["id"] == best_id
+        return {"runs": runs, "best_run_id": best_id}
+
+    def _serialize_run(self, item: EvalRunModel) -> dict[str, object]:
+        result_json = item.result_json or {}
+        # Persisted result_json may already carry id/source; ensure top-level fields are consistent.
+        payload = dict(result_json)
+        payload["id"] = item.id
+        payload["dataset_id"] = item.dataset_id
+        payload["model"] = item.model
+        payload["status"] = item.status
+        payload["score"] = float(item.score)
+        payload["source"] = "database"
+        return payload
+
     async def _run_dataset_cases(self, dataset_id: int, model: str, case_models: list[EvalCaseModel]) -> dict[str, object]:
         original = eval_service._datasets.get(dataset_id)
         eval_service._datasets[dataset_id] = EvalDataset(

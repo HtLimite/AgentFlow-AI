@@ -24,6 +24,7 @@ class EvalDataset:
 class EvalService:
     def __init__(self) -> None:
         self._run_ids = count(1)
+        self._runs: dict[int, dict[str, object]] = {}
         self._datasets: dict[int, EvalDataset] = {
             1: EvalDataset(
                 id=1,
@@ -41,8 +42,9 @@ class EvalService:
         eval_cases = [EvalCase(item, "", "") for item in cases] if cases else (dataset.cases if dataset else [])
         results = [await self._score_case(item) for item in eval_cases]
         score = round(sum(float(item["score"]) for item in results) / len(results), 2) if results else 0
-        return {
-            "id": next(self._run_ids),
+        run_id = next(self._run_ids)
+        payload = {
+            "id": run_id,
             "status": "completed",
             "dataset_id": dataset_id,
             "model": model,
@@ -51,6 +53,26 @@ class EvalService:
             "source": "runtime_rag_judge",
             "judge_mode": "heuristic_judge",
         }
+        self._runs[run_id] = payload
+        return payload
+
+    def list_runs(self, dataset_id: int | None = None, limit: int = 50, offset: int = 0) -> list[dict[str, object]]:
+        items = list(self._runs.values())
+        if dataset_id is not None:
+            items = [item for item in items if item.get("dataset_id") == dataset_id]
+        items = items[::-1][offset : offset + limit]
+        return items
+
+    def get_run(self, run_id: int) -> dict[str, object] | None:
+        return self._runs.get(run_id)
+
+    def compare_runs(self, run_ids: list[int]) -> dict[str, object]:
+        runs = [self._runs[rid] for rid in run_ids if rid in self._runs]
+        best = min(runs, key=lambda row: float(row.get("score") or 0), default=None)
+        best_id = best["id"] if best else None
+        for run in runs:
+            run["is_best"] = run["id"] == best_id
+        return {"runs": runs, "best_run_id": best_id}
 
     async def _score_case(self, item: EvalCase) -> dict[str, object]:
         rag = await rag_service.answer(kb_id=1, question=item.question, top_k=3)
