@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rbac import UserContext, require_permission
 from app.crud.model_provider import (
     create_ai_model,
     create_model_provider,
@@ -29,22 +30,22 @@ router = APIRouter()
 
 
 @router.get("", response_model=list[ModelProviderRead])
-async def list_providers(session: AsyncSession = Depends(get_db)) -> list[ModelProviderRead]:
+async def list_providers(_ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> list[ModelProviderRead]:
     return await list_model_providers(session)
 
 
 @router.post("", response_model=ModelProviderRead, status_code=status.HTTP_201_CREATED)
-async def create_provider(payload: ModelProviderCreate, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
+async def create_provider(payload: ModelProviderCreate, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
     return await create_model_provider(session, payload)
 
 
 @router.get("/models/list", response_model=list[AIModelRead])
-async def list_models(session: AsyncSession = Depends(get_db)) -> list[AIModelRead]:
+async def list_models(_ctx: UserContext = Depends(require_permission("model:read")), session: AsyncSession = Depends(get_db)) -> list[AIModelRead]:
     return await list_ai_models(session)
 
 
 @router.post("/models", response_model=AIModelRead, status_code=status.HTTP_201_CREATED)
-async def create_model(payload: AIModelCreate, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+async def create_model(payload: AIModelCreate, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> AIModelRead:
     model = await create_ai_model(session, payload)
     if model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
@@ -52,7 +53,7 @@ async def create_model(payload: AIModelCreate, session: AsyncSession = Depends(g
 
 
 @router.get("/models/{model_id}", response_model=AIModelRead)
-async def read_model(model_id: int, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+async def read_model(model_id: int, _ctx: UserContext = Depends(require_permission("model:read")), session: AsyncSession = Depends(get_db)) -> AIModelRead:
     model = await get_ai_model(session, model_id)
     if model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI model not found")
@@ -60,7 +61,7 @@ async def read_model(model_id: int, session: AsyncSession = Depends(get_db)) -> 
 
 
 @router.put("/models/{model_id}", response_model=AIModelRead)
-async def update_model(model_id: int, payload: AIModelUpdate, session: AsyncSession = Depends(get_db)) -> AIModelRead:
+async def update_model(model_id: int, payload: AIModelUpdate, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> AIModelRead:
     model = await update_ai_model(session, model_id, payload)
     if model is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI model or model provider not found")
@@ -68,14 +69,14 @@ async def update_model(model_id: int, payload: AIModelUpdate, session: AsyncSess
 
 
 @router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_model(model_id: int, session: AsyncSession = Depends(get_db)) -> None:
+async def remove_model(model_id: int, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> None:
     deleted = await delete_ai_model(session, model_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI model not found")
 
 
 @router.get("/{provider_id}", response_model=ModelProviderRead)
-async def read_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
+async def read_provider(provider_id: int, _ctx: UserContext = Depends(require_permission("model:read")), session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
     provider = await get_model_provider(session, provider_id)
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
@@ -83,7 +84,7 @@ async def read_provider(provider_id: int, session: AsyncSession = Depends(get_db
 
 
 @router.put("/{provider_id}", response_model=ModelProviderRead)
-async def update_provider(provider_id: int, payload: ModelProviderUpdate, session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
+async def update_provider(provider_id: int, payload: ModelProviderUpdate, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> ModelProviderRead:
     provider = await update_model_provider(session, provider_id, payload)
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
@@ -91,14 +92,14 @@ async def update_provider(provider_id: int, payload: ModelProviderUpdate, sessio
 
 
 @router.delete("/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> None:
+async def remove_provider(provider_id: int, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> None:
     deleted = await delete_model_provider(session, provider_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")
 
 
 @router.post("/{provider_id}/test")
-async def test_model_provider(provider_id: int, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def test_model_provider(provider_id: int, _ctx: UserContext = Depends(require_permission("model:manage")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     provider = await get_model_provider_entity(session, provider_id)
     if provider is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model provider not found")

@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rbac import UserContext, require_permission
 from app.services.persistent_prompt_service import is_prompt_database_error, persistent_prompt_service
 from app.services.prompt_service import prompt_service
 
@@ -25,7 +26,7 @@ class PromptTestRequest(BaseModel):
 
 
 @router.get("")
-async def list_prompts(session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def list_prompts(_ctx: UserContext = Depends(require_permission("prompt:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         return await persistent_prompt_service.list_items(session)
     except Exception as exc:
@@ -35,7 +36,7 @@ async def list_prompts(session: AsyncSession = Depends(get_db)) -> list[dict[str
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_prompt(payload: PromptCreateRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def create_prompt(payload: PromptCreateRequest, _ctx: UserContext = Depends(require_permission("prompt:manage")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         return await persistent_prompt_service.create(session, payload.name, payload.scenario, payload.content)
     except Exception as exc:
@@ -45,7 +46,7 @@ async def create_prompt(payload: PromptCreateRequest, session: AsyncSession = De
 
 
 @router.put("/{prompt_id}")
-async def update_prompt(prompt_id: int, payload: PromptUpdateRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def update_prompt(prompt_id: int, payload: PromptUpdateRequest, _ctx: UserContext = Depends(require_permission("prompt:manage")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         item = await persistent_prompt_service.update(session, prompt_id, payload.content, payload.change_note)
     except Exception as exc:
@@ -59,7 +60,7 @@ async def update_prompt(prompt_id: int, payload: PromptUpdateRequest, session: A
 
 
 @router.get("/{prompt_id}/versions")
-async def list_prompt_versions(prompt_id: int, session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def list_prompt_versions(prompt_id: int, _ctx: UserContext = Depends(require_permission("prompt:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         versions = await persistent_prompt_service.versions(session, prompt_id)
     except Exception as exc:
@@ -73,7 +74,7 @@ async def list_prompt_versions(prompt_id: int, session: AsyncSession = Depends(g
 
 
 @router.post("/{prompt_id}/test")
-async def test_prompt(prompt_id: int, payload: PromptTestRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def test_prompt(prompt_id: int, payload: PromptTestRequest, _ctx: UserContext = Depends(require_permission("prompt:read")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         result = await persistent_prompt_service.render(session, prompt_id, payload.variables)
     except Exception as exc:

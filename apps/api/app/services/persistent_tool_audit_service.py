@@ -43,12 +43,23 @@ class PersistentToolAuditService:
         await session.refresh(item)
         return _serialize(item)
 
-    async def list_records(self, session: AsyncSession, limit: int = 50, tool_name: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
-        stmt = select(ToolAuditLogModel).order_by(desc(ToolAuditLogModel.id)).limit(limit)
+    async def list_records(
+        self,
+        session: AsyncSession,
+        limit: int = 50,
+        offset: int = 0,
+        tool_name: str | None = None,
+        status: str | None = None,
+        tenant_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        stmt = select(ToolAuditLogModel).order_by(desc(ToolAuditLogModel.id))
         if tool_name:
             stmt = stmt.where(ToolAuditLogModel.tool_name == tool_name)
         if status:
             stmt = stmt.where(ToolAuditLogModel.status == status)
+        if tenant_id is not None:
+            stmt = stmt.where(ToolAuditLogModel.tenant_id == tenant_id)
+        stmt = stmt.limit(limit).offset(offset)
         result = await session.scalars(stmt)
         return [_serialize(item) for item in result.all()]
 
@@ -56,11 +67,20 @@ class PersistentToolAuditService:
         item = await session.get(ToolAuditLogModel, record_id)
         return _serialize(item) if item else None
 
-    async def summary(self, session: AsyncSession) -> dict[str, Any]:
-        total = int(await session.scalar(select(func.count(ToolAuditLogModel.id))) or 0)
-        failed = int(await session.scalar(select(func.count(ToolAuditLogModel.id)).where(ToolAuditLogModel.status != "success")) or 0)
-        avg_latency = await session.scalar(select(func.avg(ToolAuditLogModel.latency_ms)))
-        tool_rows = await session.execute(select(ToolAuditLogModel.tool_name, func.count(ToolAuditLogModel.id)).group_by(ToolAuditLogModel.tool_name))
+    async def summary(self, session: AsyncSession, tenant_id: int | None = None) -> dict[str, Any]:
+        base_count = select(func.count(ToolAuditLogModel.id))
+        failed_count = select(func.count(ToolAuditLogModel.id)).where(ToolAuditLogModel.status != "success")
+        avg_latency_stmt = select(func.avg(ToolAuditLogModel.latency_ms))
+        tool_rows_stmt = select(ToolAuditLogModel.tool_name, func.count(ToolAuditLogModel.id)).group_by(ToolAuditLogModel.tool_name)
+        if tenant_id is not None:
+            base_count = base_count.where(ToolAuditLogModel.tenant_id == tenant_id)
+            failed_count = failed_count.where(ToolAuditLogModel.tenant_id == tenant_id)
+            avg_latency_stmt = avg_latency_stmt.where(ToolAuditLogModel.tenant_id == tenant_id)
+            tool_rows_stmt = tool_rows_stmt.where(ToolAuditLogModel.tenant_id == tenant_id)
+        total = int(await session.scalar(base_count) or 0)
+        failed = int(await session.scalar(failed_count) or 0)
+        avg_latency = await session.scalar(avg_latency_stmt)
+        tool_rows = await session.execute(tool_rows_stmt)
         tool_counts = {tool: int(count) for tool, count in tool_rows.all()}
         avg_value = float(avg_latency) if isinstance(avg_latency, Decimal) else float(avg_latency or 0)
         return {"total_calls": total, "failed_calls": failed, "success_rate": round((total - failed) / total, 4) if total else 1, "avg_latency_ms": round(avg_value, 2), "tool_counts": tool_counts, "source": "database"}

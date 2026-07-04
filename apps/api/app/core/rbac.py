@@ -6,16 +6,35 @@ from fastapi import Depends, Header, HTTPException, status
 ROLE_PERMISSIONS: dict[str, set[str]] = {
     "owner": {"*"},
     "admin": {
+        "model:read",
         "model:manage",
+        "knowledge:read",
         "knowledge:manage",
         "agent:run",
+        "workflow:read",
         "workflow:manage",
+        "prompt:read",
         "prompt:manage",
         "eval:run",
+        "eval:read",
         "audit:read",
+        "chat:run",
     },
-    "operator": {"knowledge:manage", "agent:run", "workflow:manage", "prompt:manage", "eval:run", "audit:read"},
-    "viewer": {"agent:run", "audit:read"},
+    "operator": {
+        "model:read",
+        "knowledge:read",
+        "knowledge:manage",
+        "agent:run",
+        "workflow:read",
+        "workflow:manage",
+        "prompt:read",
+        "prompt:manage",
+        "eval:run",
+        "eval:read",
+        "audit:read",
+        "chat:run",
+    },
+    "viewer": {"model:read", "knowledge:read", "agent:run", "audit:read", "chat:run", "workflow:read", "prompt:read", "eval:read"},
 }
 
 

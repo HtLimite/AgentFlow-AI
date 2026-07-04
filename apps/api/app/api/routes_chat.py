@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rbac import UserContext, require_permission
 from app.crud.model_provider import get_default_model_provider_entity, get_model_provider_entity
 from app.models.domain import AIModel, ModelProvider
 from app.services.llm_service import LLMMessage, llm_service
@@ -29,7 +30,7 @@ class ChatCompletionRequest(BaseModel):
 
 
 @router.post("/completions")
-async def chat_completions(payload: ChatCompletionRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def chat_completions(payload: ChatCompletionRequest, _ctx: UserContext = Depends(require_permission("chat:run")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     provider, model_name, model_id, model_source = await _resolve_provider_and_model(session, payload)
 
     if provider is not None and model_name:
@@ -188,6 +189,6 @@ async def _stream_answer(payload: ChatCompletionRequest, session: AsyncSession, 
 
 
 @router.post("/completions/stream")
-async def stream_chat_completions(payload: ChatCompletionRequest, session: AsyncSession = Depends(get_db)) -> StreamingResponse:
+async def stream_chat_completions(payload: ChatCompletionRequest, _ctx: UserContext = Depends(require_permission("chat:run")), session: AsyncSession = Depends(get_db)) -> StreamingResponse:
     provider, model_name, _model_id, model_source = await _resolve_provider_and_model(session, payload)
     return StreamingResponse(_stream_answer(payload, session, provider, model_name, model_source), media_type="text/event-stream")

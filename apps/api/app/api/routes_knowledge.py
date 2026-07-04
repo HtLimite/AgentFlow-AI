@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rbac import UserContext, require_permission
 from app.services.document_parser import DocumentParseError
 from app.services.knowledge_service import knowledge_service
 from app.services.persistent_knowledge_service import is_database_error, persistent_knowledge_service
@@ -22,7 +23,7 @@ class KnowledgeQueryRequest(BaseModel):
 
 
 @router.get("")
-async def list_knowledge_bases(session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def list_knowledge_bases(_ctx: UserContext = Depends(require_permission("knowledge:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         return await persistent_knowledge_service.list_bases(session)
     except Exception as exc:
@@ -32,7 +33,7 @@ async def list_knowledge_bases(session: AsyncSession = Depends(get_db)) -> list[
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_knowledge_base(payload: KnowledgeBaseCreateRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def create_knowledge_base(payload: KnowledgeBaseCreateRequest, _ctx: UserContext = Depends(require_permission("knowledge:manage")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         return await persistent_knowledge_service.create_base(session, payload.name, payload.description)
     except Exception as exc:
@@ -42,7 +43,7 @@ async def create_knowledge_base(payload: KnowledgeBaseCreateRequest, session: As
 
 
 @router.get("/{kb_id}/documents")
-async def list_documents(kb_id: int, session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def list_documents(kb_id: int, _ctx: UserContext = Depends(require_permission("knowledge:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         return await persistent_knowledge_service.list_documents(session, kb_id)
     except Exception as exc:
@@ -52,7 +53,7 @@ async def list_documents(kb_id: int, session: AsyncSession = Depends(get_db)) ->
 
 
 @router.post("/{kb_id}/documents")
-async def upload_document(kb_id: int, file: UploadFile, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def upload_document(kb_id: int, _ctx: UserContext = Depends(require_permission("knowledge:manage")), file: UploadFile = ..., session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     content = await file.read()
     try:
         document = await persistent_knowledge_service.add_document(session, kb_id, file.filename or "untitled.txt", content)
@@ -72,7 +73,7 @@ async def upload_document(kb_id: int, file: UploadFile, session: AsyncSession = 
 
 
 @router.post("/{kb_id}/documents/{document_id}/remove")
-async def remove_document(kb_id: int, document_id: int, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def remove_document(kb_id: int, document_id: int, _ctx: UserContext = Depends(require_permission("knowledge:manage")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         removed = await persistent_knowledge_service.remove_document(session, kb_id, document_id)
     except Exception as exc:
@@ -86,7 +87,7 @@ async def remove_document(kb_id: int, document_id: int, session: AsyncSession = 
 
 
 @router.post("/{kb_id}/query")
-async def query_knowledge_base(kb_id: int, payload: KnowledgeQueryRequest, session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def query_knowledge_base(kb_id: int, payload: KnowledgeQueryRequest, _ctx: UserContext = Depends(require_permission("knowledge:read")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         return await persistent_knowledge_service.answer(session, kb_id=kb_id, question=payload.question, top_k=payload.top_k)
     except Exception as exc:

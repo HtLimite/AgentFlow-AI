@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rbac import UserContext, require_permission
 from app.services.observability_service import observability_service
 from app.services.persistent_observability_service import is_observability_database_error, persistent_observability_service
 
@@ -9,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/summary")
-async def get_dashboard_summary(session: AsyncSession = Depends(get_db)) -> dict[str, object]:
+async def get_dashboard_summary(_ctx: UserContext = Depends(require_permission("audit:read")), session: AsyncSession = Depends(get_db)) -> dict[str, object]:
     try:
         return await persistent_observability_service.summary(session)
     except Exception as exc:
@@ -21,7 +22,7 @@ async def get_dashboard_summary(session: AsyncSession = Depends(get_db)) -> dict
 
 
 @router.get("/token-usage")
-async def get_token_usage(session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def get_token_usage(_ctx: UserContext = Depends(require_permission("audit:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         return await persistent_observability_service.token_usage(session)
     except Exception as exc:
@@ -31,7 +32,7 @@ async def get_token_usage(session: AsyncSession = Depends(get_db)) -> list[dict[
 
 
 @router.get("/llm-logs")
-async def get_llm_logs(session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def get_llm_logs(_ctx: UserContext = Depends(require_permission("audit:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         return await persistent_observability_service.list_logs(session)
     except Exception as exc:
@@ -41,7 +42,7 @@ async def get_llm_logs(session: AsyncSession = Depends(get_db)) -> list[dict[str
 
 
 @router.get("/recent-errors")
-async def get_recent_errors(session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
+async def get_recent_errors(_ctx: UserContext = Depends(require_permission("audit:read")), session: AsyncSession = Depends(get_db)) -> list[dict[str, object]]:
     try:
         logs = await persistent_observability_service.list_logs(session, limit=50)
     except Exception as exc:

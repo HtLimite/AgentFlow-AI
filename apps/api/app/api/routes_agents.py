@@ -4,7 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.rbac import UserContext, get_current_context
+from app.core.rbac import UserContext, get_current_context, require_permission
 from app.services.agent_service import agent_service
 from app.services.persistent_tool_audit_service import persistent_tool_audit_service
 from app.services.tool_service import tool_registry
@@ -18,7 +18,7 @@ class AgentChatRequest(BaseModel):
 
 
 @router.get("")
-async def list_agents() -> list[dict[str, object]]:
+async def list_agents(_ctx: UserContext = Depends(require_permission("agent:run"))) -> list[dict[str, object]]:
     tools = tool_registry.list_tools()
     return [
         {
@@ -36,7 +36,7 @@ async def chat_with_agent(
     agent_id: int,
     payload: AgentChatRequest,
     session: AsyncSession = Depends(get_db),
-    context: UserContext = Depends(get_current_context),
+    context: UserContext = Depends(require_permission("agent:run")),
 ) -> dict[str, object]:
     result = await agent_service.chat(agent_id=agent_id, question=payload.question)
     for call in result.get("tool_calls", []):
