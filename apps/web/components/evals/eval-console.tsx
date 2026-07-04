@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, apiJson } from "@/lib/api-client";
+import { apiGet, apiJson, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -40,7 +40,7 @@ export function EvalConsole() {
   }
 
   useEffect(() => {
-    load().catch((error) => setResult(error.message));
+    load().catch((error) => setResult(errorMessage(error, "评测初始化失败")));
   }, []);
 
   async function run() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE_URL, apiGet, apiJson } from "@/lib/api-client";
+import { API_BASE_URL, apiGet, apiJson, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -58,7 +58,7 @@ export function ChatPlayground() {
   }
 
   useEffect(() => {
-    loadModels().catch((error) => setModelError(error.message));
+    loadModels().catch((error) => setModelError(errorMessage(error, "模型列表加载失败")));
   }, []);
 
   async function send() {
@@ -75,7 +75,7 @@ export function ChatPlayground() {
         await sendOnce();
       }
     } catch (error) {
-      setAnswer(error instanceof Error ? error.message : "请求失败");
+      setAnswer(errorMessage(error, "请求失败"));
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,13 @@ export function ChatPlayground() {
         if (!line) continue;
         const payload = line.replace(/^data: /, "");
         if (payload === "[DONE]") continue;
-        const event = JSON.parse(payload) as StreamEvent;
+        let event: StreamEvent;
+        try {
+          event = JSON.parse(payload) as StreamEvent;
+        } catch {
+          // Skip malformed SSE payloads instead of aborting the whole stream.
+          continue;
+        }
         if (event.type === "meta") {
           const modelLabel = (event.model ?? selectedModel) || "local-fallback";
           meta = `Model：${modelLabel}\nMode：${event.mode ?? "-"}\nModel Source：${event.model_source ?? "-"}`;

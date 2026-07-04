@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, apiJson } from "@/lib/api-client";
+import { apiGet, apiJson, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -26,7 +26,7 @@ export function AgentConsole() {
   }
 
   useEffect(() => {
-    loadAgents().catch((error) => setResult(error.message));
+    loadAgents().catch((error) => setResult(errorMessage(error, "Agent 列表加载失败")));
   }, []);
 
   async function run() {

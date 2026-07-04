@@ -1,5 +1,12 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+/** Safely extract a human-readable message from a caught value (unknown in catch under strict TS). */
+export function errorMessage(value: unknown, fallback = "请求失败"): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "string") return value;
+  return fallback;
+}
+
 async function readError(response: Response, method: string, path: string) {
   const text = await response.text();
   return new Error(`${method} ${path} failed: ${response.status}${text ? ` ${text}` : ""}`);

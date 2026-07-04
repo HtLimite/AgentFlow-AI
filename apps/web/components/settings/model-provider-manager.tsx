@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { apiDelete, apiGet, apiJson } from "@/lib/api-client";
+import { apiDelete, apiGet, apiJson, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -220,7 +220,7 @@ export function ModelProviderManager() {
   }, []);
 
   useEffect(() => {
-    load().catch((error) => setMessage(error.message));
+    load().catch((error) => setMessage(errorMessage(error, "供应商与模型加载失败")));
   }, [load]);
 
   function applyPreset(nextPresetKey: string) {
