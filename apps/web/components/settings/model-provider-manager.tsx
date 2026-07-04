@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiJson, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/dialog";
 
 interface ProviderItem {
   id: number;
@@ -195,6 +196,8 @@ export function ModelProviderManager() {
   const [modelForm, setModelForm] = useState<ModelForm>(initialModelForm);
   const [editingProviderId, setEditingProviderId] = useState<number | null>(null);
   const [editingModelId, setEditingModelId] = useState<number | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ kind: "provider" | "model"; id: number; label: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const selectedPreset = useMemo(() => PROVIDER_PRESETS.find((item) => item.key === presetKey) ?? PROVIDER_PRESETS[0], [presetKey]);
   const providerTypeMeta = PROVIDER_TYPE_OPTIONS.find((item) => item.value === form.providerType);
@@ -361,7 +364,6 @@ export function ModelProviderManager() {
   }
 
   async function removeProvider(item: ProviderItem) {
-    if (!window.confirm(`删除供应商「${item.name}」会级联删除其下模型，确认继续？`)) return;
     await apiDelete(`/api/model-providers/${item.id}`);
     setMessage(`已删除供应商：${item.name}`);
     if (editingProviderId === item.id) resetProviderForm();
@@ -369,11 +371,29 @@ export function ModelProviderManager() {
   }
 
   async function removeModel(item: AIModelItem) {
-    if (!window.confirm(`确认删除模型「${item.model_name}」？`)) return;
     await apiDelete(`/api/model-providers/models/${item.id}`);
     setMessage(`已删除模型：${item.model_name}`);
     if (editingModelId === item.id) resetModelForm(modelForm.providerId);
     await load();
+  }
+
+  async function executeConfirmedRemove() {
+    if (!confirmRemove) return;
+    setRemoving(true);
+    try {
+      if (confirmRemove.kind === "provider") {
+        const item = items.find((row) => row.id === confirmRemove.id);
+        if (item) await removeProvider(item);
+      } else {
+        const item = models.find((row) => row.id === confirmRemove.id);
+        if (item) await removeModel(item);
+      }
+      setConfirmRemove(null);
+    } catch (error) {
+      setMessage(errorMessage(error, "删除失败"));
+    } finally {
+      setRemoving(false);
+    }
   }
 
   return (
@@ -537,7 +557,7 @@ export function ModelProviderManager() {
                       <Button onClick={() => testProvider(item.id)}>测试</Button>
                       <Button onClick={() => editProvider(item)}>编辑</Button>
                       <Button onClick={() => toggleProvider(item)}>{item.enabled ? "停用" : "启用"}</Button>
-                      <Button className="bg-red-500 hover:bg-red-400" onClick={() => removeProvider(item)}>删除</Button>
+                      <Button className="bg-red-500 hover:bg-red-400" onClick={() => setConfirmRemove({ kind: "provider", id: item.id, label: item.name })}>删除</Button>
                     </div>
                   </div>
                 </div>
@@ -567,7 +587,7 @@ export function ModelProviderManager() {
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => editModel(item)}>编辑</Button>
                       <Button onClick={() => toggleModel(item)}>{item.enabled ? "停用" : "启用"}</Button>
-                      <Button className="bg-red-500 hover:bg-red-400" onClick={() => removeModel(item)}>删除</Button>
+                      <Button className="bg-red-500 hover:bg-red-400" onClick={() => setConfirmRemove({ kind: "model", id: item.id, label: item.model_name })}>删除</Button>
                     </div>
                   </div>
                 </div>
@@ -576,6 +596,21 @@ export function ModelProviderManager() {
           </div>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={confirmRemove !== null}
+        onOpenChange={(open) => { if (!open) setConfirmRemove(null); }}
+        title={confirmRemove?.kind === "provider" ? "删除供应商" : "删除模型"}
+        description={
+          confirmRemove?.kind === "provider"
+            ? `删除供应商「${confirmRemove.label}」会级联删除其下所有模型，确认继续？`
+            : `确认删除模型「${confirmRemove?.label ?? ""}」？`
+        }
+        confirmText="删除"
+        destructive
+        loading={removing}
+        onConfirm={executeConfirmedRemove}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { API_BASE_URL, apiGet, apiJson } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/dialog";
 
 interface KnowledgeBaseItem {
   id: number;
@@ -70,6 +71,7 @@ export function KnowledgeConsole() {
   const [uploading, setUploading] = useState(false);
   const [querying, setQuerying] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [newBaseName, setNewBaseName] = useState("");
 
   async function loadBases(preferredId = selectedId) {
@@ -248,7 +250,7 @@ export function KnowledgeConsole() {
                   <div className="font-medium">{document.filename}</div>
                   <div className="mt-1 text-slate-400">#{document.id} · {document.parse_status} · 切片 {document.chunk_count}</div>
                 </div>
-                <Button onClick={() => void removeDocument(document.id)} disabled={removingId === document.id}>
+                <Button onClick={() => setConfirmDeleteId(document.id)} disabled={removingId === document.id} variant="danger">
                   {removingId === document.id ? "删除中" : "删除"}
                 </Button>
               </div>
@@ -314,6 +316,22 @@ export function KnowledgeConsole() {
           </div>
         ) : null}
       </Card>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}
+        title="删除文档"
+        description={`确认删除文档 #${confirmDeleteId ?? ""}？该文档将从知识库列表和后续检索中移除，操作不可撤销。`}
+        confirmText="删除"
+        destructive
+        loading={removingId !== null}
+        onConfirm={async () => {
+          if (confirmDeleteId !== null) {
+            await removeDocument(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }
+        }}
+      />
     </div>
   );
 }

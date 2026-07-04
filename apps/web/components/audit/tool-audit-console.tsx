@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiGet, errorMessage } from "@/lib/api-client";
+import { API_BASE_URL, apiGet, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -36,13 +36,15 @@ export function ToolAuditConsole() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const PAGE_SIZE = 50;
 
-  async function load() {
+  async function load(targetOffset = offset) {
     setRefreshing(true);
     try {
       setError("");
       const [list, stats] = await Promise.all([
-        apiGet<AuditRecord[]>("/api/audit/tools"),
+        apiGet<AuditRecord[]>(`/api/audit/tools?limit=${PAGE_SIZE}&offset=${targetOffset}`),
         apiGet<AuditSummary>("/api/audit/tools/summary"),
       ]);
       setRecords(list);
@@ -57,8 +59,29 @@ export function ToolAuditConsole() {
   }
 
   useEffect(() => {
-    void load();
+    void load(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function nextPage() {
+    const next = offset + PAGE_SIZE;
+    setOffset(next);
+    void load(next);
+  }
+
+  function prevPage() {
+    const prev = Math.max(0, offset - PAGE_SIZE);
+    setOffset(prev);
+    void load(prev);
+  }
+
+  function exportCsv() {
+    const params = new URLSearchParams();
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (toolFilter !== "all") params.set("tool_name", toolFilter);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    window.open(`${API_BASE_URL}/api/audit/tools/export${query}`, "_blank");
+  }
 
   const toolOptions = useMemo(() => Array.from(new Set(records.map((item) => item.tool_name))).sort(), [records]);
   const filteredRecords = useMemo(() => {
@@ -98,7 +121,10 @@ export function ToolAuditConsole() {
           <h2 className="text-xl font-semibold">工具调用审计</h2>
           <p className="mt-1 text-sm text-slate-400">追踪 Agent 每次工具调用的输入、输出、状态、耗时和 trace_id，支持筛选定位异常。</p>
         </div>
-        <Button onClick={load} disabled={refreshing}>{refreshing ? "刷新中..." : "刷新审计"}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => load(offset)} disabled={refreshing}>{refreshing ? "刷新中..." : "刷新审计"}</Button>
+          <Button onClick={exportCsv} variant="secondary">导出 CSV</Button>
+        </div>
       </Card>
 
       {error && <Card className="border-red-400/40 text-red-200">{error}</Card>}
@@ -174,6 +200,13 @@ export function ToolAuditConsole() {
                 </button>
               ))
             )}
+          </div>
+          <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+            <span>第 {offset + 1} - {offset + records.length} 条</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={prevPage} disabled={refreshing || offset === 0}>上一页</Button>
+              <Button size="sm" variant="secondary" onClick={nextPage} disabled={refreshing || records.length < PAGE_SIZE}>下一页</Button>
+            </div>
           </div>
         </Card>
 
