@@ -29,6 +29,7 @@ PERSISTENCE_TABLES = [
     "eval_run",
     "llm_call_log",
     "tool_audit_log",
+    "agent_definition",
     "tenant",
     "audit_log",
 ]
@@ -234,6 +235,19 @@ PERSISTENCE_BOOTSTRAP_SQL = [
       error_message TEXT,
       tenant_id BIGINT,
       created_at TIMESTAMP DEFAULT NOW()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS agent_definition (
+      id BIGSERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      description TEXT,
+      system_prompt TEXT,
+      tools JSONB,
+      enabled BOOLEAN DEFAULT TRUE,
+      tenant_id BIGINT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
     )
     """,
     """

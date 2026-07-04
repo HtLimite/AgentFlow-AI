@@ -214,3 +214,17 @@ class ToolAuditLogModel(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     tenant_id: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AgentDefinitionModel(Base):
+    __tablename__ = "agent_definition"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    system_prompt: Mapped[str | None] = mapped_column(Text)
+    tools: Mapped[list | None] = mapped_column(JSONB)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    tenant_id: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
