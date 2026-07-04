@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiGet, apiJson } from "@/lib/api-client";
+import { apiGet, apiJson, errorMessage } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -28,6 +28,7 @@ export function PromptConsole() {
   const [rendered, setRendered] = useState("请选择 Prompt，并填写 JSON 变量后渲染");
   const [form, setForm] = useState({ name: "", scenario: "general", content: "", changeNote: "update" });
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const selectedPrompt = useMemo(() => items.find((item) => item.id === selectedPromptId), [items, selectedPromptId]);
 
@@ -69,14 +70,21 @@ export function PromptConsole() {
       setError("请填写 Prompt 名称和内容");
       return;
     }
-    const created = await apiJson<PromptItem>("/api/prompts", {
-      name: form.name.trim(),
-      scenario: form.scenario.trim() || "general",
-      content: form.content,
-    });
-    setRendered(`已创建 Prompt：${created.name}`);
+    setBusy(true);
     setError("");
-    await load(created.id);
+    try {
+      const created = await apiJson<PromptItem>("/api/prompts", {
+        name: form.name.trim(),
+        scenario: form.scenario.trim() || "general",
+        content: form.content,
+      });
+      setRendered(`已创建 Prompt：${created.name}`);
+      await load(created.id);
+    } catch (err) {
+      setError(errorMessage(err, "创建 Prompt 失败"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function updatePrompt() {
@@ -88,13 +96,20 @@ export function PromptConsole() {
       setError("Prompt 内容不能为空");
       return;
     }
-    const updated = await apiJson<PromptItem>(`/api/prompts/${selectedPromptId}`, {
-      content: form.content,
-      change_note: form.changeNote.trim() || "update",
-    }, "PUT");
-    setRendered(`已更新 Prompt：${updated.name} v${updated.current_version ?? "-"}`);
+    setBusy(true);
     setError("");
-    await load(selectedPromptId);
+    try {
+      const updated = await apiJson<PromptItem>(`/api/prompts/${selectedPromptId}`, {
+        content: form.content,
+        change_note: form.changeNote.trim() || "update",
+      }, "PUT");
+      setRendered(`已更新 Prompt：${updated.name} v${updated.current_version ?? "-"}`);
+      await load(selectedPromptId);
+    } catch (err) {
+      setError(errorMessage(err, "更新 Prompt 失败"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function test() {
@@ -109,8 +124,15 @@ export function PromptConsole() {
       setRendered("变量不是合法 JSON");
       return;
     }
-    const data = await apiJson<{ rendered: string }>(`/api/prompts/${selectedPromptId}/test`, { variables });
-    setRendered(data.rendered);
+    setBusy(true);
+    try {
+      const data = await apiJson<{ rendered: string }>(`/api/prompts/${selectedPromptId}/test`, { variables });
+      setRendered(data.rendered);
+    } catch (err) {
+      setRendered(errorMessage(err, "渲染失败"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -170,15 +192,15 @@ export function PromptConsole() {
             </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button onClick={createPrompt}>新建 Prompt</Button>
-            <Button onClick={updatePrompt} disabled={!selectedPromptId}>更新所选 Prompt</Button>
+            <Button onClick={createPrompt} disabled={busy || !form.name.trim() || !form.content.trim()}>{busy ? "处理中..." : "新建 Prompt"}</Button>
+            <Button onClick={updatePrompt} disabled={busy || !selectedPromptId}>{busy ? "处理中..." : "更新所选 Prompt"}</Button>
           </div>
         </Card>
 
         <Card>
           <h2 className="font-semibold">测试变量</h2>
           <textarea className="mt-4 min-h-32 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-200" value={variablesText} onChange={(event) => setVariablesText(event.target.value)} />
-          <Button className="mt-4" onClick={test} disabled={!selectedPromptId}>渲染 Prompt</Button>
+          <Button className="mt-4" onClick={test} disabled={busy || !selectedPromptId}>{busy ? "渲染中..." : "渲染 Prompt"}</Button>
           <h2 className="mt-6 font-semibold">测试结果</h2>
           <pre className="mt-4 overflow-auto rounded-xl bg-slate-950/80 p-4 text-sm text-slate-300">{rendered}</pre>
         </Card>
